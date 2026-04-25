@@ -72,6 +72,19 @@ final class CaptureViewModel {
         }
     }
 
+    // MARK: - Focus / exposure / torch
+
+    struct FocusIndicator: Equatable {
+        let layerPoint: CGPoint    // in PreviewUIView coord space (0..w, 0..h)
+        var locked: Bool
+    }
+
+    var focusIndicator: FocusIndicator?
+    var exposureBias: Float = 0
+    var torchOn: Bool = false
+
+    private var focusDismissTask: Task<Void, Never>?
+
     let session = CameraSession()
     let recorder = DualRecorder()
     let portraitSource = PortraitFrameSource()
@@ -149,8 +162,51 @@ final class CaptureViewModel {
         do {
             try await session.switchPosition()
             position = session.position
+            // New device → reset focus / exposure / torch UI state.
+            focusDismissTask?.cancel()
+            focusIndicator = nil
+            exposureBias = 0
+            torchOn = false
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    func tapToFocus(layerPoint: CGPoint, devicePoint: CGPoint) {
+        session.tapToFocus(at: devicePoint)
+        exposureBias = 0
+        focusIndicator = FocusIndicator(layerPoint: layerPoint, locked: false)
+        scheduleFocusDismiss()
+    }
+
+    func longPressToLock(layerPoint: CGPoint, devicePoint: CGPoint) {
+        session.lockFocusAndExposure(at: devicePoint)
+        focusIndicator = FocusIndicator(layerPoint: layerPoint, locked: true)
+        focusDismissTask?.cancel()  // locked indicator stays visible
+    }
+
+    func setExposureBias(_ value: Float) {
+        let clamped = max(-2, min(2, value))
+        exposureBias = clamped
+        session.setExposureBias(clamped)
+        scheduleFocusDismiss()
+    }
+
+    func toggleTorch() {
+        guard session.hasTorch else { return }
+        torchOn.toggle()
+        session.setTorch(torchOn)
+    }
+
+    private func scheduleFocusDismiss() {
+        focusDismissTask?.cancel()
+        guard focusIndicator?.locked == false else { return }
+        focusDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, !Task.isCancelled else { return }
+            if self.focusIndicator?.locked == false {
+                self.focusIndicator = nil
+            }
         }
     }
 

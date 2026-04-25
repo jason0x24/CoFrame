@@ -117,6 +117,125 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
         }
     }
 
+    // MARK: - Focus / exposure / torch
+
+    private var lockWorkItem: DispatchWorkItem?
+
+    /// One-shot autofocus + auto-exposure at the given normalized device point. Settles
+    /// to a stable focus then keeps subject-area-change tracking active so re-framing
+    /// triggers a refocus. Cancels any pending lock from a prior long-press.
+    func tapToFocus(at devicePoint: CGPoint) {
+        sessionQueue.async {
+            self.lockWorkItem?.cancel()
+            self.lockWorkItem = nil
+            self.applyPointOfInterest(devicePoint, lockAfterSettle: false)
+        }
+    }
+
+    /// Long-press behavior: autofocus + auto-exposure at the given point, then **lock**
+    /// both modes so re-framing or lighting changes don't cause re-adjustment.
+    func lockFocusAndExposure(at devicePoint: CGPoint) {
+        sessionQueue.async {
+            self.lockWorkItem?.cancel()
+            self.applyPointOfInterest(devicePoint, lockAfterSettle: true)
+        }
+    }
+
+    /// Restore continuous auto behavior and reset exposure bias to 0.
+    func resumeContinuousAutoFocus() {
+        sessionQueue.async {
+            self.lockWorkItem?.cancel()
+            self.lockWorkItem = nil
+            guard let device = self.videoInput?.device else { return }
+            do {
+                try device.lockForConfiguration()
+                if device.isFocusModeSupported(.continuousAutoFocus) {
+                    device.focusMode = .continuousAutoFocus
+                }
+                if device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.exposureMode = .continuousAutoExposure
+                }
+                device.setExposureTargetBias(0, completionHandler: nil)
+                device.isSubjectAreaChangeMonitoringEnabled = true
+                device.unlockForConfiguration()
+            } catch { }
+        }
+    }
+
+    /// Adjust exposure compensation in EV. Clamped to the device's supported range.
+    func setExposureBias(_ ev: Float) {
+        sessionQueue.async {
+            guard let device = self.videoInput?.device else { return }
+            let clamped = max(device.minExposureTargetBias, min(device.maxExposureTargetBias, ev))
+            do {
+                try device.lockForConfiguration()
+                device.setExposureTargetBias(clamped, completionHandler: nil)
+                device.unlockForConfiguration()
+            } catch { }
+        }
+    }
+
+    /// Toggle the camera's torch (rear LED). No-op if the active device has no torch.
+    func setTorch(_ on: Bool) {
+        sessionQueue.async {
+            guard let device = self.videoInput?.device, device.hasTorch else { return }
+            do {
+                try device.lockForConfiguration()
+                device.torchMode = on ? .on : .off
+                device.unlockForConfiguration()
+            } catch { }
+        }
+    }
+
+    /// Whether the active capture device has a torch (front cameras don't).
+    var hasTorch: Bool {
+        videoInput?.device.hasTorch ?? false
+    }
+
+    private func applyPointOfInterest(_ devicePoint: CGPoint, lockAfterSettle: Bool) {
+        guard let device = videoInput?.device else { return }
+        do {
+            try device.lockForConfiguration()
+            if device.isFocusPointOfInterestSupported, device.isFocusModeSupported(.autoFocus) {
+                device.focusPointOfInterest = devicePoint
+                device.focusMode = .autoFocus
+            }
+            if device.isExposurePointOfInterestSupported, device.isExposureModeSupported(.autoExpose) {
+                device.exposurePointOfInterest = devicePoint
+                device.exposureMode = .autoExpose
+            }
+            device.setExposureTargetBias(0, completionHandler: nil)
+            // When locking, disable subject-area monitoring so the device doesn't
+            // re-trigger autofocus on its own.
+            device.isSubjectAreaChangeMonitoringEnabled = !lockAfterSettle
+            device.unlockForConfiguration()
+        } catch { return }
+
+        if lockAfterSettle {
+            // After ~0.4s the device has typically settled; freeze focus & exposure
+            // at the current values. We keep this short so the lock feels responsive.
+            let work = DispatchWorkItem { [weak self] in
+                self?.lockCurrentFocusAndExposure()
+            }
+            lockWorkItem = work
+            sessionQueue.asyncAfter(deadline: .now() + 0.4, execute: work)
+        }
+    }
+
+    private func lockCurrentFocusAndExposure() {
+        guard let device = videoInput?.device else { return }
+        do {
+            try device.lockForConfiguration()
+            if device.isFocusModeSupported(.locked) {
+                device.focusMode = .locked
+            }
+            if device.isExposureModeSupported(.locked) {
+                device.exposureMode = .locked
+            }
+            device.unlockForConfiguration()
+        } catch { }
+    }
+
     // MARK: - Private
 
     private func applyInitialConfiguration() throws {

@@ -57,7 +57,15 @@ private struct PreviewArea: View {
             let dashOffset = (vm.portraitCropPosition - 0.5) * track
 
             ZStack {
-                CameraPreviewView(session: vm.session)
+                CameraPreviewView(
+                    session: vm.session,
+                    onTap: { layerPoint, devicePoint in
+                        vm.tapToFocus(layerPoint: layerPoint, devicePoint: devicePoint)
+                    },
+                    onLongPress: { layerPoint, devicePoint in
+                        vm.longPressToLock(layerPoint: layerPoint, devicePoint: devicePoint)
+                    }
+                )
 
                 // Draggable 9:16 portrait crop indicator. Horizontal-only.
                 Rectangle()
@@ -82,9 +90,98 @@ private struct PreviewArea: View {
 
                 GuideOverlay(kind: vm.guideLine, rollDegrees: vm.level.rollDegrees)
                     .allowsHitTesting(false)
+
+                if let focus = vm.focusIndicator {
+                    FocusIndicatorView(locked: focus.locked)
+                        .position(focus.layerPoint)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+
+                    ExposureBiasSlider(bias: vm.exposureBias) { newBias in
+                        vm.setExposureBias(newBias)
+                    }
+                    .position(
+                        x: min(focus.layerPoint.x + 64, w - 24),
+                        y: min(max(focus.layerPoint.y, 60), h - 60)
+                    )
+                    .transition(.opacity)
+                }
             }
             .frame(width: w, height: h)
             .frame(width: geo.size.width, height: geo.size.height)
+            .animation(.easeInOut(duration: 0.18), value: vm.focusIndicator)
+        }
+    }
+}
+
+// MARK: - Focus indicator + exposure bias slider
+
+private struct FocusIndicatorView: View {
+    let locked: Bool
+
+    @State private var scale: CGFloat = 1.5
+
+    var body: some View {
+        Rectangle()
+            .stroke(Color.yellow, lineWidth: 1.5)
+            .frame(width: 70, height: 70)
+            .scaleEffect(scale)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.22)) { scale = 1.0 }
+            }
+            .overlay(alignment: .top) {
+                if locked {
+                    Text("AE/AF 锁定")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.yellow)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .offset(y: -16)
+                }
+            }
+    }
+}
+
+private struct ExposureBiasSlider: View {
+    let bias: Float                       // -2 ~ +2
+    let onChange: (Float) -> Void
+
+    private let trackHeight: CGFloat = 96
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(.yellow)
+
+            ZStack(alignment: .center) {
+                Capsule()
+                    .fill(.white.opacity(0.4))
+                    .frame(width: 2, height: trackHeight)
+
+                ForEach([-2, -1, 0, 1, 2], id: \.self) { mark in
+                    Rectangle()
+                        .fill(.white.opacity(mark == 0 ? 0.9 : 0.4))
+                        .frame(width: mark == 0 ? 10 : 6, height: 1)
+                        .offset(y: -CGFloat(Float(mark) / 2.0) * (trackHeight / 2))
+                }
+
+                Circle()
+                    .fill(.yellow)
+                    .frame(width: 12, height: 12)
+                    .offset(y: -CGFloat(bias / 2.0) * (trackHeight / 2))
+            }
+            .frame(width: 30, height: trackHeight)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let yFromCenter = -(value.location.y - trackHeight / 2)
+                        let normalized = max(-1, min(1, yFromCenter / (trackHeight / 2)))
+                        onChange(Float(normalized * 2))
+                    }
+            )
         }
     }
 }
@@ -123,6 +220,12 @@ private struct FloatingControls: View {
                     }
                     ChipButton(systemImage: vm.pipHidden ? "rectangle.dashed" : "rectangle.fill") {
                         vm.togglePiP()
+                    }
+                    if vm.position == .back {
+                        ChipButton(systemImage: vm.torchOn ? "bolt.fill" : "bolt.slash.fill",
+                                   tinted: vm.torchOn) {
+                            vm.toggleTorch()
+                        }
                     }
                     QualityChip(vm: vm)
                 }
@@ -176,6 +279,7 @@ private struct FloatingControls: View {
 private struct ChipButton: View {
     let systemImage: String
     var label: String? = nil
+    var tinted: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -187,7 +291,7 @@ private struct ChipButton: View {
                     Text(label).font(.system(size: 11, weight: .medium))
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(tinted ? Color.yellow : .white)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(.ultraThinMaterial, in: Capsule())
