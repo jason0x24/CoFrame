@@ -16,17 +16,24 @@ enum AppPreferences {
     private static let store = UserDefaults.standard
 
     static var defaultQuality: VideoQuality {
-        let raw = store.string(forKey: Key.defaultQuality)
-        return raw.flatMap(VideoQuality.init(rawValue:)) ?? .hd1080p30
+        get {
+            let raw = store.string(forKey: Key.defaultQuality)
+            return raw.flatMap(VideoQuality.init(rawValue:)) ?? .hd1080p30
+        }
+        set { store.set(newValue.rawValue, forKey: Key.defaultQuality) }
     }
 
     static var defaultGuideLine: GuideLineKind {
-        let raw = store.string(forKey: Key.defaultGuideLine)
-        return raw.flatMap(GuideLineKind.init(rawValue:)) ?? .ruleOfThirds
+        get {
+            let raw = store.string(forKey: Key.defaultGuideLine)
+            return raw.flatMap(GuideLineKind.init(rawValue:)) ?? .ruleOfThirds
+        }
+        set { store.set(newValue.rawValue, forKey: Key.defaultGuideLine) }
     }
 
     static var muteSystemSounds: Bool {
-        store.object(forKey: Key.muteSystemSounds) as? Bool ?? true
+        get { store.object(forKey: Key.muteSystemSounds) as? Bool ?? true }
+        set { store.set(newValue, forKey: Key.muteSystemSounds) }
     }
 
     /// Configure the system audio session for video recording. When

@@ -54,9 +54,13 @@ final class CaptureViewModel {
     }
 
     var state: State = .idle
-    var quality: VideoQuality = AppPreferences.defaultQuality
+    var quality: VideoQuality = AppPreferences.defaultQuality {
+        didSet { AppPreferences.defaultQuality = quality }
+    }
     var position: CameraPosition = .back
-    var guideLine: GuideLineKind = AppPreferences.defaultGuideLine
+    var guideLine: GuideLineKind = AppPreferences.defaultGuideLine {
+        didSet { AppPreferences.defaultGuideLine = guideLine }
+    }
     var pipHidden: Bool = false
     var lastError: String?
     var elapsed: TimeInterval = 0

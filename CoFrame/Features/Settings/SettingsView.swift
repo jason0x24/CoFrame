@@ -2,12 +2,6 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
-    @AppStorage(AppPreferences.Key.defaultQuality)
-    private var defaultQualityRaw: String = VideoQuality.hd1080p30.rawValue
-
-    @AppStorage(AppPreferences.Key.defaultGuideLine)
-    private var defaultGuideLineRaw: String = GuideLineKind.ruleOfThirds.rawValue
-
     @AppStorage(AppPreferences.Key.muteSystemSounds)
     private var muteSystemSounds: Bool = true
 
@@ -17,21 +11,9 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("默认画质", selection: $defaultQualityRaw) {
-                        ForEach(VideoQuality.allCases) { q in
-                            Text(q.displayName).tag(q.rawValue)
-                        }
-                    }
-                    Picker("默认基准线", selection: $defaultGuideLineRaw) {
-                        ForEach(GuideLineKind.allCases, id: \.self) { g in
-                            Text(g.displayName).tag(g.rawValue)
-                        }
-                    }
                     Toggle("录制时静音系统提示音", isOn: $muteSystemSounds)
-                } header: {
-                    Text("录制")
                 } footer: {
-                    Text("默认值会在下次启动时生效。当前会话内可在录制界面顶部 chip 直接切换。")
+                    Text("画质和基准线会按你在录制界面的最近一次选择自动记住，无需在这里设置。")
                 }
 
                 Section("关于") {
