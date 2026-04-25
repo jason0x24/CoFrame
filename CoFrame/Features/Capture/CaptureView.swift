@@ -4,6 +4,7 @@ import UIKit
 struct CaptureView: View {
     @State private var vm = CaptureViewModel()
     @State private var showDrafts = false
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -24,6 +25,9 @@ struct CaptureView: View {
         .sheet(isPresented: $showDrafts) {
             DraftsView()
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
 
     @ViewBuilder
@@ -32,7 +36,9 @@ struct CaptureView: View {
             PreviewArea(vm: vm)
                 .ignoresSafeArea()
 
-            FloatingControls(vm: vm, showDrafts: $showDrafts)
+            FloatingControls(vm: vm,
+                             showDrafts: $showDrafts,
+                             showSettings: $showSettings)
 
             if !vm.pipHidden {
                 DraggablePiP(vm: vm)
@@ -191,6 +197,7 @@ private struct ExposureBiasSlider: View {
 private struct FloatingControls: View {
     @Bindable var vm: CaptureViewModel
     @Binding var showDrafts: Bool
+    @Binding var showSettings: Bool
 
     var body: some View {
         GeometryReader { geo in
@@ -228,6 +235,9 @@ private struct FloatingControls: View {
                         }
                     }
                     QualityChip(vm: vm)
+                    ChipButton(systemImage: "gearshape.fill") {
+                        showSettings = true
+                    }
                 }
                 .padding(.leading, chipsLeading)
                 .padding(.top, topInset)

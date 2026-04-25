@@ -3,7 +3,7 @@ import Foundation
 import Observation
 import UIKit
 
-nonisolated enum GuideLineKind: CaseIterable, Sendable {
+nonisolated enum GuideLineKind: String, CaseIterable, Sendable {
     case off
     case ruleOfThirds
     case crosshair
@@ -54,9 +54,9 @@ final class CaptureViewModel {
     }
 
     var state: State = .idle
-    var quality: VideoQuality = .hd1080p30
+    var quality: VideoQuality = AppPreferences.defaultQuality
     var position: CameraPosition = .back
-    var guideLine: GuideLineKind = .ruleOfThirds
+    var guideLine: GuideLineKind = AppPreferences.defaultGuideLine
     var pipHidden: Bool = false
     var lastError: String?
     var elapsed: TimeInterval = 0
@@ -136,6 +136,7 @@ final class CaptureViewModel {
     }
 
     private func startRecording() {
+        AppPreferences.applyAudioSessionConfig()
         do {
             try recorder.start(quality: quality, into: .shared)
             UIApplication.shared.isIdleTimerDisabled = true
