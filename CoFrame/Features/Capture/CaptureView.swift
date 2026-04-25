@@ -12,15 +12,16 @@ struct CaptureView: View {
 
             switch vm.state {
             case .idle, .configuring:
-                ProgressView("正在初始化相机…")
-                    .tint(.white)
-                    .foregroundStyle(.white)
+                LaunchSplash()
+                    .transition(.opacity)
             case .error(let msg):
                 ErrorBanner(message: msg)
             default:
                 content
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: stage)
         .task { await vm.bootstrap() }
         .sheet(isPresented: $showDrafts) {
             DraftsView()
@@ -29,6 +30,18 @@ struct CaptureView: View {
             SettingsView()
         }
     }
+
+    /// Coarse bucket of `vm.state` used as the animation key so SwiftUI
+    /// crossfades between splash → camera content (or → error) cleanly.
+    private var stage: Stage {
+        switch vm.state {
+        case .idle, .configuring: .loading
+        case .error:              .error
+        default:                  .ready
+        }
+    }
+
+    private enum Stage: Hashable { case loading, ready, error }
 
     @ViewBuilder
     private var content: some View {
