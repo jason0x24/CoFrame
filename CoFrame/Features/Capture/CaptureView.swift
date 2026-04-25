@@ -360,7 +360,7 @@ private struct DraggablePiP: View {
 
             PortraitPiPView(source: vm.portraitSource,
                             mirrored: vm.position == .front,
-                            cropPosition: vm.portraitCropPosition)
+                            cropPosition: vm.effectiveCropPosition)
                 .frame(width: Self.baseSize.width * scale,
                        height: Self.baseSize.height * scale)
                 .shadow(color: .black.opacity(0.35), radius: 8, y: 2)

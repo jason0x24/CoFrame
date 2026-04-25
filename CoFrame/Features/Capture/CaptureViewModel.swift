@@ -61,15 +61,20 @@ final class CaptureViewModel {
     var lastError: String?
     var elapsed: TimeInterval = 0
 
-    /// Horizontal position of the 9:16 portrait crop within the 16:9 source.
-    /// 0 = left edge, 0.5 = center (default), 1 = right edge.
-    /// The recorder reads this for source-pixel cropping; the PiP view reads it
-    /// directly via SwiftUI binding to translate its display layer.
+    /// User-facing horizontal position of the 9:16 portrait crop, expressed in
+    /// **preview-space** (what the user sees on screen).
+    /// 0 = preview left edge, 0.5 = center (default), 1 = preview right edge.
     var portraitCropPosition: CGFloat = 0.5 {
-        didSet {
-            let clamped = max(0, min(1, portraitCropPosition))
-            recorder.cropPosition = clamped
-        }
+        didSet { recorder.cropPosition = effectiveCropPosition }
+    }
+
+    /// The same crop position translated into **buffer-space** (the un-mirrored sensor
+    /// frame). For the back camera, preview-space and buffer-space are aligned.
+    /// For the front camera, the preview is auto-mirrored by AVCaptureVideoPreviewLayer
+    /// while the recorder/PiP work on the un-mirrored buffer — so we invert.
+    var effectiveCropPosition: CGFloat {
+        let clamped = max(0, min(1, portraitCropPosition))
+        return position == .front ? (1 - clamped) : clamped
     }
 
     // MARK: - Focus / exposure / torch
@@ -167,6 +172,8 @@ final class CaptureViewModel {
             focusIndicator = nil
             exposureBias = 0
             torchOn = false
+            // Re-apply crop in buffer-space — it inverts when switching front/back.
+            recorder.cropPosition = effectiveCropPosition
         } catch {
             lastError = error.localizedDescription
         }
