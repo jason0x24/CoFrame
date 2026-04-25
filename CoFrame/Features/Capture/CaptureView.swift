@@ -35,17 +35,7 @@ struct CaptureView: View {
             FloatingControls(vm: vm, showDrafts: $showDrafts)
 
             if !vm.pipHidden {
-                VStack {
-                    HStack {
-                        Spacer()
-                        PortraitPiPView(source: vm.portraitSource, mirrored: vm.position == .front)
-                            .frame(width: 92, height: 164)
-                            .onTapGesture(count: 2) { vm.togglePiP() }
-                    }
-                    Spacer()
-                }
-                .padding(.top, 16)
-                .padding(.trailing, 16)
+                DraggablePiP(vm: vm)
             }
         }
     }
@@ -56,23 +46,44 @@ struct CaptureView: View {
 private struct PreviewArea: View {
     @Bindable var vm: CaptureViewModel
 
+    @State private var cropDragStart: CGFloat?
+
     var body: some View {
         GeometryReader { geo in
             let h = min(geo.size.height, geo.size.width * 9.0 / 16.0)
             let w = h * 16.0 / 9.0
             let cropWidth = h * 9.0 / 16.0
+            let track = w - cropWidth                            // total horizontal travel
+            let dashOffset = (vm.portraitCropPosition - 0.5) * track
 
             ZStack {
                 CameraPreviewView(session: vm.session)
-                    .frame(width: w, height: h)
 
+                // Draggable 9:16 portrait crop indicator. Horizontal-only.
                 Rectangle()
-                    .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                     .frame(width: cropWidth, height: h)
+                    .contentShape(Rectangle())
+                    .offset(x: dashOffset)
+                    .gesture(
+                        DragGesture(minimumDistance: 2)
+                            .onChanged { value in
+                                if cropDragStart == nil {
+                                    cropDragStart = vm.portraitCropPosition
+                                }
+                                guard track > 0 else { return }
+                                let delta = value.translation.width / track
+                                vm.portraitCropPosition = max(0, min(1, cropDragStart! + delta))
+                            }
+                            .onEnded { _ in
+                                cropDragStart = nil
+                            }
+                    )
 
                 GuideOverlay(kind: vm.guideLine, rollDegrees: vm.level.rollDegrees)
-                    .frame(width: w, height: h)
+                    .allowsHitTesting(false)
             }
+            .frame(width: w, height: h)
             .frame(width: geo.size.width, height: geo.size.height)
         }
     }
@@ -85,9 +96,24 @@ private struct FloatingControls: View {
     @Binding var showDrafts: Bool
 
     var body: some View {
-        ZStack {
-            // Top-left: chip cluster
-            VStack {
+        GeometryReader { geo in
+            // Camera preview is 16:9 fit-by-height, centered in full screen.
+            let h = min(geo.size.height, geo.size.width * 9.0 / 16.0)
+            let w = h * 16.0 / 9.0
+            let previewLeft = (geo.size.width - w) / 2
+            let previewRight = previewLeft + w
+            let insets = geo.safeAreaInsets
+
+            // Where chips and the record button anchor:
+            let chipsLeading = max(previewLeft, insets.leading) + 12
+            let topInset = max(insets.top, 12)
+            let recordX = previewRight - 40            // 40 = button half-width(32) + 8 inset from preview edge
+            let rightLetterboxCenter = (previewRight + (geo.size.width - insets.trailing)) / 2
+            let bottomInset = max(insets.bottom, 16)
+
+            ZStack(alignment: .topLeading) {
+                // Top-left chip cluster — anchored to preview's left edge (not screen),
+                // so the leftmost chip never bleeds into the left letterbox.
                 HStack(spacing: 8) {
                     ChipButton(systemImage: vm.guideLine.systemImage, label: vm.guideLine.displayName) {
                         vm.cycleGuide()
@@ -99,16 +125,12 @@ private struct FloatingControls: View {
                         vm.togglePiP()
                     }
                     QualityChip(vm: vm)
-                    Spacer()
                 }
-                Spacer()
-            }
-            .padding(.leading, 16)
-            .padding(.top, 16)
+                .padding(.leading, chipsLeading)
+                .padding(.top, topInset)
 
-            // Top-center: recording timer
-            if case .recording = vm.state {
-                VStack {
+                // Top-center recording timer
+                if case .recording = vm.state {
                     HStack(spacing: 8) {
                         Circle().fill(Color.red).frame(width: 10, height: 10)
                         Text(formatElapsed(vm.elapsed))
@@ -118,33 +140,24 @@ private struct FloatingControls: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(.black.opacity(0.55), in: Capsule())
-                    .padding(.top, 16)
-                    Spacer()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, topInset)
                 }
-            }
 
-            // Right-center: record button (sits in the letterbox strip, aligned with camera content vertical center)
-            HStack {
-                Spacer()
+                // Record button — sits inside the preview area near its right edge,
+                // never bleeds into the right letterbox or the rounded corner.
                 RecordButton(isRecording: isRecordingNow) { vm.toggleRecord() }
                     .disabled(isFinishing)
                     .opacity(isFinishing ? 0.5 : 1.0)
-            }
-            .padding(.trailing, 24)
+                    .position(x: recordX, y: geo.size.height / 2)
 
-            // Bottom-right: drafts entry
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    ChipButton(systemImage: "photo.stack") {
-                        showDrafts = true
-                    }
-                }
+                // Drafts entry — placed in the right letterbox black strip near the bottom.
+                ChipButton(systemImage: "photo.stack") { showDrafts = true }
+                    .position(x: rightLetterboxCenter,
+                              y: geo.size.height - bottomInset - 18)
             }
-            .padding(.trailing, 16)
-            .padding(.bottom, 16)
         }
+        .ignoresSafeArea()
     }
 
     private var isRecordingNow: Bool {
@@ -211,6 +224,129 @@ private struct QualityChip: View {
             .padding(.vertical, 8)
             .background(.ultraThinMaterial, in: Capsule())
         }
+    }
+}
+
+// MARK: - Draggable, pinch-to-zoom PiP
+
+/// Floating portrait preview the user can drag and pinch-zoom anywhere on screen.
+///
+/// - Drag tracking is done with plain `@State` (not `@GestureState`) so the position
+///   updates live under the finger and stays put on release — no spring-back artefact.
+/// - Pinch scales between `minScale` and `maxScale`. The PiP center is re-clamped on
+///   scale change so the resized box never escapes the safe area.
+/// - Default rest position: bottom-left of the screen.
+/// - Double-tap hides the PiP (re-shown via the toolbar chip, which resets to default).
+private struct DraggablePiP: View {
+    @Bindable var vm: CaptureViewModel
+
+    private static let baseSize = CGSize(width: 120, height: 213)  // 9:16, matches user's preferred default
+    private static let edgeMargin: CGFloat = 12
+    private static let minScale: CGFloat = 0.6
+    private static let maxScale: CGFloat = 1.5
+
+    @State private var center: CGPoint?           // committed center (nil = use default)
+    @State private var dragAnchor: CGPoint?       // center at drag start
+    @State private var scale: CGFloat = 1.0       // current scale
+    @State private var pinchAnchorScale: CGFloat = 1.0  // scale at pinch start
+
+    var body: some View {
+        GeometryReader { geo in
+            let insets = geo.safeAreaInsets
+
+            PortraitPiPView(source: vm.portraitSource,
+                            mirrored: vm.position == .front,
+                            cropPosition: vm.portraitCropPosition)
+                .frame(width: Self.baseSize.width * scale,
+                       height: Self.baseSize.height * scale)
+                .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
+                .position(center ?? defaultCenter(in: geo.size, insets: insets))
+                .gesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { value in
+                            if dragAnchor == nil {
+                                dragAnchor = center ?? defaultCenter(in: geo.size, insets: insets)
+                            }
+                            let proposed = CGPoint(
+                                x: dragAnchor!.x + value.translation.width,
+                                y: dragAnchor!.y + value.translation.height
+                            )
+                            center = clamped(proposed, in: geo.size, insets: insets)
+                        }
+                        .onEnded { _ in
+                            dragAnchor = nil
+                        }
+                )
+                .simultaneousGesture(
+                    MagnifyGesture()
+                        .onChanged { value in
+                            // Cap scale dynamically to whatever fits inside the preview area.
+                            let cap = effectiveMaxScale(in: geo.size, insets: insets)
+                            scale = min(max(pinchAnchorScale * value.magnification,
+                                            Self.minScale),
+                                        cap)
+                            if let c = center {
+                                center = clamped(c, in: geo.size, insets: insets)
+                            }
+                        }
+                        .onEnded { _ in
+                            pinchAnchorScale = scale
+                        }
+                )
+                .onTapGesture(count: 2) { vm.togglePiP() }
+        }
+        .ignoresSafeArea()
+    }
+
+    private var currentSize: CGSize {
+        CGSize(width: Self.baseSize.width * scale, height: Self.baseSize.height * scale)
+    }
+
+    /// The 16:9 preview content rectangle within the screen — PiP is constrained to this.
+    private func previewRect(in size: CGSize) -> CGRect {
+        let h = min(size.height, size.width * 9.0 / 16.0)
+        let w = h * 16.0 / 9.0
+        let x = (size.width - w) / 2
+        let y = (size.height - h) / 2
+        return CGRect(x: x, y: y, width: w, height: h)
+    }
+
+    private func defaultCenter(in size: CGSize, insets: EdgeInsets) -> CGPoint {
+        let preview = previewRect(in: size)
+        let s = currentSize
+        // Bottom-left of preview area, with extra inset for home indicator on bottom.
+        let bottomGuard = max(insets.bottom, 0)
+        return CGPoint(
+            x: preview.minX + Self.edgeMargin + s.width / 2,
+            y: preview.maxY - bottomGuard - Self.edgeMargin - s.height / 2
+        )
+    }
+
+    private func clamped(_ point: CGPoint, in size: CGSize, insets: EdgeInsets) -> CGPoint {
+        let preview = previewRect(in: size)
+        let s = currentSize
+        let halfW = s.width / 2
+        let halfH = s.height / 2
+        let m = Self.edgeMargin
+        // Horizontal: stay inside preview's 16:9 box.
+        let xMin = preview.minX + halfW + m
+        let xMax = preview.maxX - halfW - m
+        // Vertical: inside preview & away from DI/home indicator.
+        let yMin = preview.minY + max(insets.top, 0) + halfH + m
+        let yMax = preview.maxY - max(insets.bottom, 0) - halfH - m
+        return CGPoint(
+            x: min(max(point.x, xMin), xMax),
+            y: min(max(point.y, yMin), yMax)
+        )
+    }
+
+    /// Largest scale where the PiP still fits inside the preview area minus safe insets.
+    private func effectiveMaxScale(in size: CGSize, insets: EdgeInsets) -> CGFloat {
+        let preview = previewRect(in: size)
+        let availW = preview.width - 2 * Self.edgeMargin
+        let availH = preview.height - max(insets.top, 0) - max(insets.bottom, 0) - 2 * Self.edgeMargin
+        let fitScale = min(availW / Self.baseSize.width, availH / Self.baseSize.height)
+        return min(fitScale, Self.maxScale)
     }
 }
 

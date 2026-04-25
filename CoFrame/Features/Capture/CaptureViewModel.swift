@@ -61,6 +61,17 @@ final class CaptureViewModel {
     var lastError: String?
     var elapsed: TimeInterval = 0
 
+    /// Horizontal position of the 9:16 portrait crop within the 16:9 source.
+    /// 0 = left edge, 0.5 = center (default), 1 = right edge.
+    /// The recorder reads this for source-pixel cropping; the PiP view reads it
+    /// directly via SwiftUI binding to translate its display layer.
+    var portraitCropPosition: CGFloat = 0.5 {
+        didSet {
+            let clamped = max(0, min(1, portraitCropPosition))
+            recorder.cropPosition = clamped
+        }
+    }
+
     let session = CameraSession()
     let recorder = DualRecorder()
     let portraitSource = PortraitFrameSource()

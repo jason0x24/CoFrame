@@ -3,15 +3,16 @@ import CoreMedia
 import Foundation
 import QuartzCore
 
-/// Owns an `AVSampleBufferDisplayLayer` that the PiP view hosts, and feeds it the
-/// camera's raw landscape sample buffers. The layer's `videoGravity = .resizeAspectFill`
-/// inside a 9:16 host frame produces the same center-crop as the recorder's portrait writer.
+/// Owns an `AVSampleBufferDisplayLayer` that the PiP view hosts and feeds it the
+/// camera's raw landscape sample buffers. Cropping for the visible 9:16 strip is
+/// done by the host view (it sizes the layer wider than its bounds and translates
+/// horizontally), so this class is a thin passthrough.
 nonisolated final class PortraitFrameSource: CameraSampleSink, @unchecked Sendable {
     let displayLayer: AVSampleBufferDisplayLayer
 
     init() {
         let layer = AVSampleBufferDisplayLayer()
-        layer.videoGravity = .resizeAspectFill
+        layer.videoGravity = .resizeAspect
         self.displayLayer = layer
     }
 

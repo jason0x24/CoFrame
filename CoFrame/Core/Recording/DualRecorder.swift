@@ -36,6 +36,23 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
     private var sessionId: UUID = UUID()
     private var startedAt: Date = Date()
 
+    private let cropLock = NSLock()
+    private var _cropPosition: CGFloat = 0.5
+
+    /// Horizontal position of the portrait crop in the source frame. 0 = left, 0.5 = center, 1 = right.
+    /// Read on the recorder queue per video frame; written from any thread.
+    var cropPosition: CGFloat {
+        get {
+            cropLock.lock(); defer { cropLock.unlock() }
+            return _cropPosition
+        }
+        set {
+            cropLock.lock()
+            _cropPosition = max(0, min(1, newValue))
+            cropLock.unlock()
+        }
+    }
+
     private(set) var isRecording: Bool = false
 
     init() {
@@ -122,7 +139,8 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
         let srcImage = CIImage(cvPixelBuffer: pixelBuffer)
         let srcExtent = srcImage.extent
         let target = quality.portraitSize
-        let cropX = ((srcExtent.width - target.width) / 2.0).rounded(.down)
+        let pos = cropPosition
+        let cropX = ((srcExtent.width - target.width) * pos).rounded(.down)
         let cropRect = CGRect(x: cropX, y: 0, width: target.width, height: target.height)
         let cropped = srcImage
             .cropped(to: cropRect)
