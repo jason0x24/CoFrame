@@ -140,7 +140,6 @@ final class CaptureViewModel {
     }
 
     private func startRecording() {
-        AppPreferences.applyAudioSessionConfig()
         do {
             try recorder.start(quality: quality, into: .shared)
             UIApplication.shared.isIdleTimerDisabled = true

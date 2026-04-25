@@ -2,20 +2,11 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
-    @AppStorage(AppPreferences.Key.muteSystemSounds)
-    private var muteSystemSounds: Bool = true
-
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Toggle("录制时静音系统提示音", isOn: $muteSystemSounds)
-                } footer: {
-                    Text("画质和基准线会按你在录制界面的最近一次选择自动记住，无需在这里设置。")
-                }
-
                 Section("关于") {
                     LabeledContent("版本", value: versionString)
                     NavigationLink {
