@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Claude Code local state
+.claude/
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# CocoaPods / Carthage (not used today, but pre-emptive)
+Pods/
+Carthage/Build/
+
+# Backups & junk
+*.swp
+*~
