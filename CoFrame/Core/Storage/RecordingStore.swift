@@ -1,4 +1,6 @@
+import AVFoundation
 import Foundation
+import UIKit
 
 nonisolated final class RecordingStore: @unchecked Sendable {
     static let shared = RecordingStore()
@@ -7,6 +9,7 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         let directory: URL
         let landscape: URL
         let portrait: URL
+        let thumbnail: URL
         let meta: URL
     }
 
@@ -19,20 +22,44 @@ nonisolated final class RecordingStore: @unchecked Sendable {
         try? fm.createDirectory(at: baseURL, withIntermediateDirectories: true)
     }
 
+    // MARK: - URL helpers
+
+    func directory(for id: UUID) -> URL {
+        baseURL.appendingPathComponent(id.uuidString, isDirectory: true)
+    }
+
     func allocateSession(id: UUID) throws -> SessionURLs {
-        let dir = baseURL.appendingPathComponent(id.uuidString, isDirectory: true)
+        let dir = directory(for: id)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return SessionURLs(
             directory: dir,
             landscape: dir.appendingPathComponent("landscape.mov"),
             portrait: dir.appendingPathComponent("portrait.mov"),
+            thumbnail: dir.appendingPathComponent("thumbnail.jpg"),
             meta: dir.appendingPathComponent("meta.json")
         )
     }
 
+    func landscapeURL(for session: RecordingSession) -> URL? {
+        guard session.hasLandscape else { return nil }
+        let url = directory(for: session.id).appendingPathComponent("landscape.mov")
+        return fm.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func portraitURL(for session: RecordingSession) -> URL? {
+        guard session.hasPortrait else { return nil }
+        let url = directory(for: session.id).appendingPathComponent("portrait.mov")
+        return fm.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func thumbnailURL(for session: RecordingSession) -> URL {
+        directory(for: session.id).appendingPathComponent("thumbnail.jpg")
+    }
+
+    // MARK: - Meta + lifecycle
+
     func writeMeta(for session: RecordingSession) throws {
-        let dir = baseURL.appendingPathComponent(session.id.uuidString, isDirectory: true)
-        let metaURL = dir.appendingPathComponent("meta.json")
+        let metaURL = directory(for: session.id).appendingPathComponent("meta.json")
         let data = try JSONEncoder().encode(session)
         try data.write(to: metaURL, options: .atomic)
     }
@@ -48,7 +75,59 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     }
 
     func delete(session: RecordingSession) throws {
-        let dir = baseURL.appendingPathComponent(session.id.uuidString, isDirectory: true)
-        try fm.removeItem(at: dir)
+        try fm.removeItem(at: directory(for: session.id))
+    }
+
+    // MARK: - Storage info
+
+    /// Total bytes used by all recording sessions (videos + thumbnails + metas).
+    func totalUsedBytes() -> Int64 {
+        guard let enumerator = fm.enumerator(at: baseURL, includingPropertiesForKeys: [.fileSizeKey]) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            if let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                total += Int64(size)
+            }
+        }
+        return total
+    }
+
+    /// Bytes still available on the device's primary volume.
+    func availableDeviceBytes() -> Int64 {
+        let attrs = try? fm.attributesOfFileSystem(forPath: baseURL.path)
+        return (attrs?[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+    }
+
+    static func fileSize(at url: URL) -> Int64 {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+    }
+
+    // MARK: - Thumbnail generation
+
+    /// Renders a single first-frame thumbnail (~320pt wide) as JPEG to
+    /// `<sessionDir>/thumbnail.jpg`. Best-effort: silently no-ops on failure.
+    func generateThumbnail(for session: RecordingSession) async {
+        let videoURL: URL? = landscapeURL(for: session) ?? portraitURL(for: session)
+        guard let videoURL else { return }
+
+        let asset = AVURLAsset(url: videoURL)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 640, height: 640)
+
+        do {
+            let time = CMTime(seconds: 0.2, preferredTimescale: 600)
+            let cgImage = try await generator.image(at: time).image
+            let uiImage = UIImage(cgImage: cgImage)
+            if let data = uiImage.jpegData(compressionQuality: 0.7) {
+                let url = thumbnailURL(for: session)
+                try? data.write(to: url, options: .atomic)
+            }
+        } catch {
+            // best effort
+        }
     }
 }

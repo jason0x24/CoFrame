@@ -139,7 +139,7 @@ final class CaptureViewModel {
             elapsed = 0
             timer?.invalidate()
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.elapsed = Date().timeIntervalSince(now)
                 }
@@ -229,6 +229,10 @@ extension CaptureViewModel: DualRecorderDelegate {
         Task { @MainActor in
             try? RecordingStore.shared.writeMeta(for: session)
             self.state = .ready
+        }
+        // Thumbnail generation is best-effort and off the main path.
+        Task.detached(priority: .background) {
+            await RecordingStore.shared.generateThumbnail(for: session)
         }
     }
 

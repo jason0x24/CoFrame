@@ -273,13 +273,17 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
             let pOK = (pWriter?.status == .completed)
 
             if (lOK || pOK), let lURL, let pURL {
+                let landscapeBytes = lOK ? RecordingStore.fileSize(at: lURL) : 0
+                let portraitBytes = pOK ? RecordingStore.fileSize(at: pURL) : 0
                 let session = RecordingSession(
                     id: id,
                     createdAt: started,
                     quality: q,
-                    landscapeURL: lOK ? lURL : nil,
-                    portraitURL: pOK ? pURL : nil,
-                    durationSeconds: durationSeconds
+                    hasLandscape: lOK,
+                    hasPortrait: pOK,
+                    durationSeconds: durationSeconds,
+                    landscapeBytes: landscapeBytes,
+                    portraitBytes: portraitBytes
                 )
                 self.delegate?.dualRecorder(self, didFinishWith: session)
             } else {

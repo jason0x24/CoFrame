@@ -1,0 +1,283 @@
+import AVKit
+import SwiftUI
+import UIKit
+
+struct DraftDetailView: View {
+    let session: RecordingSession
+    let onDelete: (UUID) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var orientation: Orientation
+    @State private var player: AVPlayer?
+    @State private var showDeleteConfirm = false
+    @State private var exportChoiceShown = false
+    @State private var exportToast: ExportToast?
+    @State private var permissionAlert = false
+
+    init(session: RecordingSession, onDelete: @escaping (UUID) -> Void) {
+        self.session = session
+        self.onDelete = onDelete
+        // Default tab: prefer landscape if both exist
+        let initial: Orientation = session.hasLandscape ? .landscape
+            : (session.hasPortrait ? .portrait : .landscape)
+        _orientation = State(initialValue: initial)
+    }
+
+    enum Orientation: String, CaseIterable, Identifiable {
+        case landscape = "横屏"
+        case portrait = "竖屏"
+        var id: String { rawValue }
+    }
+
+    private var availableOrientations: [Orientation] {
+        var result: [Orientation] = []
+        if session.hasLandscape { result.append(.landscape) }
+        if session.hasPortrait { result.append(.portrait) }
+        return result
+    }
+
+    private var currentURL: URL? {
+        switch orientation {
+        case .landscape: RecordingStore.shared.landscapeURL(for: session)
+        case .portrait:  RecordingStore.shared.portraitURL(for: session)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if availableOrientations.count > 1 {
+                Picker("", selection: $orientation) {
+                    ForEach(availableOrientations) { o in
+                        Text(o.rawValue).tag(o)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding([.horizontal, .top])
+            }
+
+            playerSection
+
+            metaSection
+        }
+        .navigationTitle(session.createdAt.formatted(date: .numeric, time: .shortened))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { trailingMenu }
+        .confirmationDialog(
+            "导出到相册",
+            isPresented: $exportChoiceShown,
+            titleVisibility: .visible
+        ) {
+            if session.hasLandscape && session.hasPortrait {
+                Button("仅横屏") { exportLandscape() }
+                Button("仅竖屏") { exportPortrait() }
+                Button("两个都导") { exportBoth() }
+            } else if session.hasLandscape {
+                Button("导出横屏") { exportLandscape() }
+            } else if session.hasPortrait {
+                Button("导出竖屏") { exportPortrait() }
+            }
+            Button("取消", role: .cancel) { }
+        }
+        .confirmationDialog(
+            "确定删除这条草稿？",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("删除", role: .destructive) { performDelete() }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("横屏和竖屏文件将被一起删除，无法恢复。")
+        }
+        .alert("没有相册权限", isPresented: $permissionAlert) {
+            Button("打开设置") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("请在「设置 → CoFrame → 照片」中开启「仅添加照片」权限。")
+        }
+        .overlay(alignment: .top) { toastView }
+        .onChange(of: orientation) { _, _ in reloadPlayer() }
+        .onAppear { reloadPlayer() }
+        .onDisappear { player?.pause() }
+    }
+
+    @ViewBuilder
+    private var playerSection: some View {
+        if let url = currentURL {
+            VideoPlayer(player: player)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(orientation == .landscape ? 16.0/9.0 : 9.0/16.0,
+                             contentMode: .fit)
+                .background(Color.black)
+                .id(url)
+        } else {
+            ContentUnavailableView("视频文件丢失",
+                                   systemImage: "exclamationmark.triangle",
+                                   description: Text("草稿文件可能已被移除。"))
+        }
+    }
+
+    private var metaSection: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Label(session.quality.displayName, systemImage: "video")
+                Spacer()
+                Label(formatDuration(session.durationSeconds), systemImage: "clock")
+                Spacer()
+                Label(formatBytes(session.totalBytes), systemImage: "internaldrive")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+
+    @ToolbarContentBuilder
+    private var trailingMenu: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button {
+                    exportChoiceShown = true
+                } label: {
+                    Label("导出到相册", systemImage: "square.and.arrow.down")
+                }
+
+                shareMenu
+
+                Divider()
+
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var shareMenu: some View {
+        let l = RecordingStore.shared.landscapeURL(for: session)
+        let p = RecordingStore.shared.portraitURL(for: session)
+        if let l, let p {
+            ShareLink(items: [l, p]) {
+                Label("分享两个", systemImage: "square.and.arrow.up")
+            }
+            ShareLink(item: l) {
+                Label("分享横屏", systemImage: "square.and.arrow.up")
+            }
+            ShareLink(item: p) {
+                Label("分享竖屏", systemImage: "square.and.arrow.up")
+            }
+        } else if let one = l ?? p {
+            ShareLink(item: one) {
+                Label("分享", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var toastView: some View {
+        if let toast = exportToast {
+            Text(toast.message)
+                .font(.footnote)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(toast.style.background, in: Capsule())
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    // MARK: - Player
+
+    private func reloadPlayer() {
+        guard let url = currentURL else { player = nil; return }
+        let p = AVPlayer(url: url)
+        p.actionAtItemEnd = .pause
+        player = p
+        p.play()
+    }
+
+    // MARK: - Export actions
+
+    private func exportLandscape() {
+        guard let url = RecordingStore.shared.landscapeURL(for: session) else { return }
+        runExport(urls: [url], single: true)
+    }
+
+    private func exportPortrait() {
+        guard let url = RecordingStore.shared.portraitURL(for: session) else { return }
+        runExport(urls: [url], single: true)
+    }
+
+    private func exportBoth() {
+        let urls = [
+            RecordingStore.shared.landscapeURL(for: session),
+            RecordingStore.shared.portraitURL(for: session)
+        ].compactMap { $0 }
+        runExport(urls: urls, single: false)
+    }
+
+    private func runExport(urls: [URL], single: Bool) {
+        Task {
+            let granted = await PhotoExporter.ensurePermission()
+            guard granted else {
+                permissionAlert = true
+                return
+            }
+            showToast(.init(message: "导出中…", style: .info))
+            let result = await PhotoExporter.saveVideos(urls)
+            if result.errors.isEmpty {
+                let msg = single ? "已导出到相册" : "已导出 \(result.succeeded)/\(urls.count) 到相册"
+                showToast(.init(message: msg, style: .success))
+            } else if result.succeeded > 0 {
+                showToast(.init(message: "部分导出成功（\(result.succeeded)/\(urls.count)）",
+                                style: .warning))
+            } else {
+                let msg = result.errors.first?.localizedDescription ?? "导出失败"
+                showToast(.init(message: msg, style: .error))
+            }
+        }
+    }
+
+    private func performDelete() {
+        try? RecordingStore.shared.delete(session: session)
+        onDelete(session.id)
+        dismiss()
+    }
+
+    private func showToast(_ toast: ExportToast) {
+        withAnimation(.easeInOut(duration: 0.2)) { exportToast = toast }
+        Task {
+            try? await Task.sleep(for: .seconds(2.5))
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.2)) { exportToast = nil }
+            }
+        }
+    }
+}
+
+private struct ExportToast: Equatable {
+    let message: String
+    let style: Style
+
+    enum Style {
+        case info, success, warning, error
+        var background: Color {
+            switch self {
+            case .info:    .black.opacity(0.7)
+            case .success: .green.opacity(0.85)
+            case .warning: .orange.opacity(0.85)
+            case .error:   .red.opacity(0.85)
+            }
+        }
+    }
+}
