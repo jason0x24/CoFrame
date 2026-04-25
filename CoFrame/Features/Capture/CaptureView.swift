@@ -345,11 +345,17 @@ private struct QualityChip: View {
                     .font(.system(size: 14, weight: .semibold))
                 Text(vm.quality.displayName)
                     .font(.system(size: 11, weight: .medium))
+                    // Lock width so swapping 1080p ↔ 4K30 ↔ 4K60 doesn't reflow.
+                    .frame(minWidth: 36, alignment: .center)
+                    .contentTransition(.identity)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(.ultraThinMaterial, in: Capsule())
+            // Don't let any ambient implicit animation interpolate the capsule's size
+            // when the user swaps quality.
+            .animation(nil, value: vm.quality)
         }
     }
 }
