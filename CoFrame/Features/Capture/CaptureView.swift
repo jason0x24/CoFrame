@@ -251,24 +251,14 @@ private struct FloatingControls: View {
                     ChipButton(systemImage: "gearshape.fill") {
                         showSettings = true
                     }
+                    if case .recording = vm.state {
+                        RecordingTimerChip(elapsed: vm.elapsed)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
                 .padding(.leading, chipsLeading)
                 .padding(.top, topInset)
-
-                // Top-center recording timer
-                if case .recording = vm.state {
-                    HStack(spacing: 8) {
-                        Circle().fill(Color.red).frame(width: 10, height: 10)
-                        Text(formatElapsed(vm.elapsed))
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.black.opacity(0.55), in: Capsule())
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, topInset)
-                }
+                .animation(.easeInOut(duration: 0.2), value: isRecordingNow)
 
                 // Record button — sits inside the preview area near its right edge,
                 // never bleeds into the right letterbox or the rounded corner.
@@ -298,6 +288,25 @@ private struct FloatingControls: View {
 }
 
 // MARK: - Chips
+
+private struct RecordingTimerChip: View {
+    let elapsed: TimeInterval
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.white)
+                .frame(width: 8, height: 8)
+            Text(formatElapsed(elapsed))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.red.opacity(0.85), in: Capsule())
+    }
+}
 
 private struct ChipButton: View {
     let systemImage: String
