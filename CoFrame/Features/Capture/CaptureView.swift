@@ -234,7 +234,7 @@ private struct FloatingControls: View {
                 // Top-left chip cluster — anchored to preview's left edge (not screen),
                 // so the leftmost chip never bleeds into the left letterbox.
                 HStack(spacing: 8) {
-                    ChipButton(systemImage: vm.guideLine.systemImage, label: vm.guideLine.displayName) {
+                    ChipButton(systemImage: vm.guideLine.systemImage) {
                         vm.cycleGuide()
                     }
                     ChipButton(systemImage: "arrow.triangle.2.circlepath.camera") {

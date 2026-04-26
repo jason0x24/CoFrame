@@ -7,6 +7,7 @@ struct DraftDetailView: View {
     let onDelete: (UUID) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
 
     @State private var orientation: Orientation
     @State private var player: AVPlayer?
@@ -52,6 +53,18 @@ struct DraftDetailView: View {
         }
     }
 
+    /// `navigationTitle` takes a `String`, not a SwiftUI Text, so we have to
+    /// build the string with the current environment locale ourselves —
+    /// otherwise `.formatted(date:time:)` would freeze the system locale at
+    /// call-time and ignore the in-app language override.
+    private var localizedTitle: String {
+        session.createdAt.formatted(
+            Date.FormatStyle.dateTime
+                .year().month().day().hour().minute()
+                .locale(locale)
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if availableOrientations.count > 1 {
@@ -68,7 +81,7 @@ struct DraftDetailView: View {
 
             metaSection
         }
-        .navigationTitle(session.createdAt.formatted(date: .numeric, time: .shortened))
+        .navigationTitle(localizedTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { trailingMenu }
         .confirmationDialog(

@@ -115,7 +115,9 @@ private struct DraftCard: View {
             .clipped()
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(session.createdAt.formatted(date: .abbreviated, time: .shortened))
+                Text(session.createdAt,
+                     format: Date.FormatStyle.dateTime
+                        .year().month(.abbreviated).day().hour().minute())
                     .font(.subheadline)
 
                 HStack(spacing: 6) {

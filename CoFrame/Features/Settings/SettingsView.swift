@@ -20,7 +20,6 @@ struct SettingsView: View {
                 }
 
                 Section("关于") {
-                    LabeledContent("版本", value: versionString)
                     NavigationLink {
                         PrivacyPolicyView()
                     } label: {
@@ -50,12 +49,12 @@ struct SettingsView: View {
     private var feedbackURL: URL {
         var components = URLComponents()
         components.scheme = "mailto"
-        components.path = "daffimalfa@gmail.com"
+        components.path = "shouchen.shan@gmail.com"
         components.queryItems = [
             URLQueryItem(name: "subject", value: String(localized: "CoFrame 反馈")),
             URLQueryItem(name: "body", value: String(localized: "App 版本：\(versionString)\n\n"))
         ]
-        return components.url ?? URL(string: "mailto:daffimalfa@gmail.com")!
+        return components.url ?? URL(string: "mailto:shouchen.shan@gmail.com")!
     }
 }
 
