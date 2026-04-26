@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CoFrame · Privacy Policy / 隐私政策</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #ffffff;
+            --text: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --accent: #0071e3;
+            --border: #d2d2d7;
+            --code-bg: #f5f5f7;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --text: #f5f5f7;
+                --text-secondary: #86868b;
+                --accent: #2997ff;
+                --border: #3a3a3c;
+                --code-bg: #1c1c1e;
+            }
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                         "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        main {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 48px 24px 96px;
+        }
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0 0 4px;
+            letter-spacing: -0.02em;
+        }
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 48px 0 12px;
+            letter-spacing: -0.01em;
+        }
+        h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin: 24px 0 8px;
+        }
+        .meta {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .lang-divider {
+            margin: 64px 0 0;
+            padding-top: 48px;
+            border-top: 1px solid var(--border);
+        }
+        ul {
+            padding-left: 20px;
+            margin: 12px 0;
+        }
+        li {
+            margin: 6px 0;
+        }
+        .perm {
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 12px 0;
+        }
+        .perm-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .perm-desc {
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .footer-note {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <!-- ============== 中文（简体） ============== -->
+    <section lang="zh-Hans">
+        <h1>CoFrame 隐私政策</h1>
+        <p class="meta">最后更新：2026-04-26</p>
+
+        <p>
+            <strong>CoFrame 不收集、不上传你的任何数据。</strong>
+            所有录制文件仅保存在你设备本地的 App 沙盒（草稿箱）中，
+            是否导出到系统相册完全由你主动选择。
+        </p>
+
+        <h2>不收集任何数据</h2>
+        <p>CoFrame 不会：</p>
+        <ul>
+            <li>不上传任何视频、音频或元数据到任何服务器</li>
+            <li>不接入任何第三方分析、广告、统计或追踪 SDK</li>
+            <li>不要求账号注册，不收集你的姓名、邮箱、手机号、设备 ID</li>
+            <li>不读取你已有的照片、视频、通讯录或任何系统数据</li>
+        </ul>
+
+        <h2>访问的系统权限</h2>
+
+        <div class="perm">
+            <div class="perm-name">📷 相机 (Camera)</div>
+            <div class="perm-desc">用于横屏 + 竖屏视频录制。仅在你打开 App 时使用，不会后台访问。</div>
+        </div>
+
+        <div class="perm">
+            <div class="perm-name">🎙 麦克风 (Microphone)</div>
+            <div class="perm-desc">用于为录制视频采集声音。仅在你打开 App 时使用，不会后台录音。</div>
+        </div>
+
+        <div class="perm">
+            <div class="perm-name">🖼 相册 - 仅添加 (Photos · Add Only)</div>
+            <div class="perm-desc">仅在你主动点击「导出到相册」时使用，将草稿箱中的视频写入系统相册。<strong>不会读取你已有的任何照片或视频。</strong></div>
+        </div>
+
+        <h2>本地数据</h2>
+        <p>
+            录制的视频文件以 <code>.mov</code> 格式保存在 App 的沙盒目录
+            (<code>Documents/Recordings/</code>)。这些文件只存在于你的设备上，
+            CoFrame 卸载时所有文件会随之删除。你也可以在 App 内的草稿箱里
+            随时单条删除。
+        </p>
+        <p>
+            App 偏好设置（默认画质、基准线选择、语言偏好等）保存在
+            iOS 标准的 UserDefaults 中，仅本机使用。
+        </p>
+
+        <h2>未成年人</h2>
+        <p>
+            CoFrame 不针对 13 岁以下用户设计，也不收集他们的任何信息
+            （我们不收集任何用户的任何信息）。
+        </p>
+
+        <h2>政策更新</h2>
+        <p>
+            如果未来隐私政策有任何变化，会在本页面更新「最后更新」日期。
+            重大变更会在 App 内提示。
+        </p>
+
+        <h2>联系我们</h2>
+        <p>
+            如有隐私相关问题，请发邮件至：
+            <a href="mailto:shouchen.shan@gmail.com">shouchen.shan@gmail.com</a>
+        </p>
+    </section>
+
+    <!-- ============== English ============== -->
+    <section lang="en" class="lang-divider">
+        <h1>CoFrame Privacy Policy</h1>
+        <p class="meta">Last updated: 2026-04-26</p>
+
+        <p>
+            <strong>CoFrame collects nothing and uploads nothing.</strong>
+            All recordings live only in the app's local sandbox (Drafts) on your device,
+            and are added to Photos only when you explicitly choose to.
+        </p>
+
+        <h2>No Data Collection</h2>
+        <p>CoFrame does <strong>not</strong>:</p>
+        <ul>
+            <li>Upload any video, audio, or metadata to any server</li>
+            <li>Integrate any third-party analytics, advertising, or tracking SDKs</li>
+            <li>Require account registration; collect no names, emails, phone numbers, or device IDs</li>
+            <li>Read any existing photos, videos, contacts, or other system data</li>
+        </ul>
+
+        <h2>System Permissions Used</h2>
+
+        <div class="perm">
+            <div class="perm-name">📷 Camera</div>
+            <div class="perm-desc">For landscape + portrait video recording. Used only while the app is open; never accessed in the background.</div>
+        </div>
+
+        <div class="perm">
+            <div class="perm-name">🎙 Microphone</div>
+            <div class="perm-desc">For capturing audio with your video. Used only while the app is open; never records in the background.</div>
+        </div>
+
+        <div class="perm">
+            <div class="perm-name">🖼 Photos · Add Only</div>
+            <div class="perm-desc">Used only when you explicitly tap "Save to Photos" in the Drafts view, to write a video file into your Photos library. <strong>Never reads any of your existing photos or videos.</strong></div>
+        </div>
+
+        <h2>Local Data</h2>
+        <p>
+            Recorded videos are saved as <code>.mov</code> files in the app's sandbox
+            directory (<code>Documents/Recordings/</code>). These files exist only on
+            your device and are removed when you uninstall CoFrame. You can also
+            delete drafts individually inside the app.
+        </p>
+        <p>
+            App preferences (default quality, guide line choice, language preference,
+            etc.) are stored in iOS's standard UserDefaults, accessible only locally.
+        </p>
+
+        <h2>Children</h2>
+        <p>
+            CoFrame is not directed at children under 13, and we collect no
+            information from anyone (or from anyone of any age — we collect nothing).
+        </p>
+
+        <h2>Policy Updates</h2>
+        <p>
+            Any future change to this policy will be reflected by updating the
+            "Last updated" date above. Material changes will also be surfaced in-app.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+            For privacy-related questions, email
+            <a href="mailto:shouchen.shan@gmail.com">shouchen.shan@gmail.com</a>.
+        </p>
+    </section>
+
+    <p class="footer-note">
+        © 2026 CoFrame · This policy applies to the CoFrame iOS app distributed via the App Store.
+    </p>
+</main>
+</body>
+</html>
