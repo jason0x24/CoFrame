@@ -373,7 +373,31 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
         session.addInput(input)
         videoInput = input
         applyFrameRate(on: device, fps: quality.frameRate)
+        applyQualityEnhancements(on: device)
         setupRotationCoordinator(for: device)
+    }
+
+    /// Match the system Camera's defaults for cleaner low-light video:
+    /// Video HDR (Smart HDR for video) gives better dynamic range and less
+    /// shadow noise; low-light boost lifts sensor gain on dim scenes; both
+    /// are off-by-default when you drive the device through `AVCaptureVideoDataOutput`
+    /// instead of `AVCaptureMovieFileOutput`. Best-effort — silently ignore
+    /// devices/formats that don't support a feature.
+    private func applyQualityEnhancements(on device: AVCaptureDevice) {
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+
+            if device.activeFormat.isVideoHDRSupported {
+                device.automaticallyAdjustsVideoHDREnabled = false
+                device.isVideoHDREnabled = true
+            }
+            if device.isLowLightBoostSupported {
+                device.automaticallyEnablesLowLightBoostWhenAvailable = true
+            }
+        } catch {
+            // tolerate
+        }
     }
 
     /// Prefer a virtual multi-lens device (UW + W + T) when available so the user can
@@ -490,6 +514,12 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
                 if connection.isVideoMirroringSupported {
                     connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = false
+                }
+                // Auto stabilization smooths handheld jitter and applies
+                // temporal denoising as a side-effect. Only valid on the
+                // video output's connection.
+                if connection.isVideoStabilizationSupported {
+                    connection.preferredVideoStabilizationMode = .auto
                 }
             }
         }

@@ -205,6 +205,22 @@ final class CaptureViewModel {
         }
     }
 
+    /// Configure `AVAudioSession` with `.videoRecording` mode so the system
+    /// applies its built-in mic noise suppression / AGC / wind reduction —
+    /// matching what the iOS Camera app uses. Without this, the default mode
+    /// gives noticeably noisier audio in our recorded files.
+    private func configureAudioSession() {
+        let audio = AVAudioSession.sharedInstance()
+        do {
+            try audio.setCategory(.playAndRecord,
+                                  mode: .videoRecording,
+                                  options: [.mixWithOthers, .allowBluetooth])
+            try audio.setActive(true)
+        } catch {
+            // Best-effort — recording will still work with the default session.
+        }
+    }
+
     private func showTransientBanner(message: String, severity: TransientBanner.Severity, duration: TimeInterval) {
         bannerDismissTask?.cancel()
         transientBanner = TransientBanner(message: message, severity: severity)
@@ -244,6 +260,8 @@ final class CaptureViewModel {
             state = .error(String(localized: "CoFrame 需要相机和麦克风权限。请在「设置 → CoFrame」中开启。"))
             return
         }
+
+        configureAudioSession()
 
         do {
             try await session.configure(quality: quality, position: position)
