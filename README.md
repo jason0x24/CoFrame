@@ -132,4 +132,4 @@ scripts/
 
 ## License
 
-私有项目（暂无开源协议）。
+[MIT License](LICENSE) —— 自由使用、修改、再分发，保留版权声明即可。
