@@ -8,6 +8,9 @@ struct CameraPreviewView: UIViewRepresentable {
     var onTap: ((CGPoint, CGPoint) -> Void)?
     /// Long-press → (layerPoint, devicePoint). Fires once on `.began`.
     var onLongPress: ((CGPoint, CGPoint) -> Void)?
+    /// Pinch lifecycle for continuous zoom.
+    var onPinchBegin: (() -> Void)?
+    var onPinchChange: ((CGFloat) -> Void)?  // cumulative scale since gesture start
 
     func makeUIView(context: Context) -> PreviewUIView {
         let view = PreviewUIView()
@@ -17,17 +20,23 @@ struct CameraPreviewView: UIViewRepresentable {
         view.installGestures()
         view.onTap = onTap
         view.onLongPress = onLongPress
+        view.onPinchBegin = onPinchBegin
+        view.onPinchChange = onPinchChange
         return view
     }
 
     func updateUIView(_ uiView: PreviewUIView, context: Context) {
         uiView.onTap = onTap
         uiView.onLongPress = onLongPress
+        uiView.onPinchBegin = onPinchBegin
+        uiView.onPinchChange = onPinchChange
     }
 
     final class PreviewUIView: UIView {
         var onTap: ((CGPoint, CGPoint) -> Void)?
         var onLongPress: ((CGPoint, CGPoint) -> Void)?
+        var onPinchBegin: (() -> Void)?
+        var onPinchChange: ((CGFloat) -> Void)?
 
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
@@ -45,6 +54,9 @@ struct CameraPreviewView: UIViewRepresentable {
             let long = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
             long.minimumPressDuration = 0.5
             addGestureRecognizer(long)
+
+            let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+            addGestureRecognizer(pinch)
         }
 
         @objc private func handleTap(_ gr: UITapGestureRecognizer) {
@@ -58,6 +70,17 @@ struct CameraPreviewView: UIViewRepresentable {
             let layerPoint = gr.location(in: self)
             let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: layerPoint)
             onLongPress?(layerPoint, devicePoint)
+        }
+
+        @objc private func handlePinch(_ gr: UIPinchGestureRecognizer) {
+            switch gr.state {
+            case .began:
+                onPinchBegin?()
+            case .changed:
+                onPinchChange?(gr.scale)
+            default:
+                break
+            }
         }
 
         /// The preview layer's `connection` is created asynchronously after `session` is set.

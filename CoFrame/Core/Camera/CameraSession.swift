@@ -175,6 +175,65 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
         }
     }
 
+    // MARK: - Zoom
+
+    /// Preferred user-facing zoom levels surfaced in the UI. Filtered against the
+    /// active device's actual range when read.
+    private static let preferredUserLevels: [CGFloat] = [0.5, 1.0, 2.0, 5.0]
+
+    /// Internal zoom factor that corresponds to the wide-angle lens (= user 1×).
+    /// For virtual cameras this is the first switch-over factor (UW = internal 1.0,
+    /// wide = internal 2.0, etc.). For single-lens devices it's just 1.0.
+    private var wideZoomMultiplier: CGFloat {
+        guard let device = videoInput?.device else { return 1.0 }
+        if let first = device.virtualDeviceSwitchOverVideoZoomFactors.first {
+            return CGFloat(truncating: first)
+        }
+        return 1.0
+    }
+
+    /// Snapshot of the active device's zoom range, ready to feed the UI.
+    struct ZoomCapabilities: Equatable {
+        var levels: [CGFloat] = [1.0]
+        var minUser: CGFloat = 1.0
+        var maxUser: CGFloat = 1.0
+    }
+
+    var zoomCapabilities: ZoomCapabilities {
+        guard let device = videoInput?.device else { return .init() }
+        let multiplier = wideZoomMultiplier
+        let minUser = device.minAvailableVideoZoomFactor / multiplier
+        let maxUser = device.maxAvailableVideoZoomFactor / multiplier
+        let levels = Self.preferredUserLevels.filter { $0 >= minUser - 0.01 && $0 <= maxUser + 0.01 }
+        return ZoomCapabilities(
+            levels: levels.isEmpty ? [1.0] : levels,
+            minUser: minUser,
+            maxUser: min(maxUser, 8.0)  // soft cap UI exposure at 8×; prevents wild digital zoom
+        )
+    }
+
+    /// Set the zoom to a user-facing factor (0.5×, 1×, 2×, …). When `animated` is
+    /// true, uses `ramp(toVideoZoomFactor:)` for a smooth tap-to-zoom transition.
+    func setUserZoom(_ user: CGFloat, animated: Bool) {
+        sessionQueue.async {
+            guard let device = self.videoInput?.device else { return }
+            let multiplier = self.wideZoomMultiplier
+            let target = user * multiplier
+            let clamped = max(device.minAvailableVideoZoomFactor,
+                              min(device.maxAvailableVideoZoomFactor, target))
+            do {
+                try device.lockForConfiguration()
+                device.cancelVideoZoomRamp()
+                if animated {
+                    device.ramp(toVideoZoomFactor: clamped, withRate: 4.0)
+                } else {
+                    device.videoZoomFactor = clamped
+                }
+                device.unlockForConfiguration()
+            } catch { }
+        }
+    }
+
     /// Toggle the camera's torch (rear LED). No-op if the active device has no torch.
     func setTorch(_ on: Bool) {
         sessionQueue.async {
@@ -263,7 +322,7 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
     }
 
     private func addVideoInput(position: CameraPosition) throws {
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position.avPosition) else {
+        guard let device = Self.preferredVideoDevice(for: position) else {
             throw CameraError.deviceUnavailable
         }
         let input = try AVCaptureDeviceInput(device: device)
@@ -272,6 +331,27 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
         videoInput = input
         applyFrameRate(on: device, fps: quality.frameRate)
         setupRotationCoordinator(for: device)
+    }
+
+    /// Prefer a virtual multi-lens device (UW + W + T) when available so the user can
+    /// zoom out to 0.5× and across optical tele lenses transparently. Front camera
+    /// always falls back to the single wide-angle.
+    private static func preferredVideoDevice(for position: CameraPosition) -> AVCaptureDevice? {
+        let avPos = position.avPosition
+        if position == .back {
+            let preferred: [AVCaptureDevice.DeviceType] = [
+                .builtInTripleCamera,
+                .builtInDualWideCamera,
+                .builtInDualCamera,
+                .builtInWideAngleCamera
+            ]
+            for type in preferred {
+                if let device = AVCaptureDevice.default(type, for: .video, position: avPos) {
+                    return device
+                }
+            }
+        }
+        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: avPos)
     }
 
     private func addAudioInput() throws {
@@ -288,16 +368,21 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
         let target = CMTime(value: 1, timescale: fps)
         do {
             try device.lockForConfiguration()
-            // Try to pick a format whose dimensions and frame-rate range cover the target.
-            let want = quality.landscapeSize
-            let candidates = device.formats.filter { fmt in
-                let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
-                let okSize = dims.width == Int32(want.width) && dims.height == Int32(want.height)
-                let okRate = fmt.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= Float64(fps) }
-                return okSize && okRate
-            }
-            if let best = candidates.first {
-                device.activeFormat = best
+            // For single-lens devices, narrow to a matching format. For virtual
+            // (multi-lens) devices, leave activeFormat alone — pinning a single
+            // format would suppress the system's ability to switch between
+            // ultra-wide / wide / telephoto lenses on zoom.
+            if device.virtualDeviceSwitchOverVideoZoomFactors.isEmpty {
+                let want = quality.landscapeSize
+                let candidates = device.formats.filter { fmt in
+                    let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+                    let okSize = dims.width == Int32(want.width) && dims.height == Int32(want.height)
+                    let okRate = fmt.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= Float64(fps) }
+                    return okSize && okRate
+                }
+                if let best = candidates.first {
+                    device.activeFormat = best
+                }
             }
             device.activeVideoMinFrameDuration = target
             device.activeVideoMaxFrameDuration = target

@@ -83,7 +83,9 @@ private struct PreviewArea: View {
                     },
                     onLongPress: { layerPoint, devicePoint in
                         vm.longPressToLock(layerPoint: layerPoint, devicePoint: devicePoint)
-                    }
+                    },
+                    onPinchBegin: { vm.beginPinchZoom() },
+                    onPinchChange: { scale in vm.updatePinchZoom(scale: scale) }
                 )
 
                 // Draggable 9:16 portrait crop indicator. Horizontal-only.
@@ -271,6 +273,17 @@ private struct FloatingControls: View {
                 ChipButton(systemImage: "photo.stack") { showDrafts = true }
                     .position(x: rightLetterboxCenter,
                               y: geo.size.height - bottomInset - 18)
+
+                // Zoom selector at the bottom of the preview, horizontally centered
+                // within the camera content (not the full screen, so it always sits
+                // above the camera area regardless of letterbox width).
+                ZoomSelector(
+                    levels: vm.zoomCapabilities.levels,
+                    current: vm.userZoomFactor,
+                    onSelect: { vm.setUserZoom($0, animated: true) }
+                )
+                .position(x: previewLeft + (previewRight - previewLeft) / 2,
+                          y: geo.size.height - bottomInset - 32)
             }
         }
         .ignoresSafeArea()
@@ -288,6 +301,72 @@ private struct FloatingControls: View {
 }
 
 // MARK: - Chips
+
+// MARK: - Zoom selector
+
+private struct ZoomSelector: View {
+    let levels: [CGFloat]
+    let current: CGFloat
+    let onSelect: (CGFloat) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(levels, id: \.self) { level in
+                ZoomLevelButton(
+                    level: level,
+                    isCurrent: isClosest(level),
+                    onTap: { onSelect(level) }
+                )
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    /// Highlight the preset closest to the current continuous zoom value, so pinch
+    /// zooming smoothly "snaps" the active highlight as the user crosses thresholds.
+    private func isClosest(_ level: CGFloat) -> Bool {
+        guard let closest = levels.min(by: {
+            abs($0 - current) < abs($1 - current)
+        }) else { return false }
+        return closest == level
+    }
+}
+
+private struct ZoomLevelButton: View {
+    let level: CGFloat
+    let isCurrent: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Text(label)
+                .font(.system(size: isCurrent ? 12 : 10,
+                              weight: isCurrent ? .bold : .medium,
+                              design: .rounded))
+                .foregroundStyle(isCurrent ? Color.yellow : Color.white.opacity(0.9))
+                .frame(width: 36, height: 30)
+                .background(
+                    Circle()
+                        .fill(Color.black.opacity(isCurrent ? 0.45 : 0))
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.16), value: isCurrent)
+    }
+
+    private var label: String {
+        // Match iPhone Camera convention: ".5" when inactive, ".5×" when active;
+        // "1" inactive, "1×" active; etc.
+        let suffix = isCurrent ? "×" : ""
+        if abs(level - 0.5) < 0.05 { return ".5\(suffix)" }
+        if level == floor(level) {
+            return "\(Int(level))\(suffix)"
+        }
+        return String(format: "%.1f\(suffix)", level)
+    }
+}
 
 private struct RecordingTimerChip: View {
     let elapsed: TimeInterval

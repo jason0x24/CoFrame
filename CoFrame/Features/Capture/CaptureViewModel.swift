@@ -92,6 +92,12 @@ final class CaptureViewModel {
     var exposureBias: Float = 0
     var torchOn: Bool = false
 
+    // MARK: - Zoom
+
+    var userZoomFactor: CGFloat = 1.0
+    var zoomCapabilities: CameraSession.ZoomCapabilities = .init()
+    private var pinchAnchorZoom: CGFloat = 1.0
+
     private var focusDismissTask: Task<Void, Never>?
 
     let session = CameraSession()
@@ -125,6 +131,8 @@ final class CaptureViewModel {
             try await session.configure(quality: quality, position: position)
             session.start()
             level.start()
+            zoomCapabilities = session.zoomCapabilities
+            userZoomFactor = 1.0
             state = .ready
         } catch {
             state = .error(error.localizedDescription)
@@ -171,16 +179,33 @@ final class CaptureViewModel {
         do {
             try await session.switchPosition()
             position = session.position
-            // New device → reset focus / exposure / torch UI state.
+            // New device → reset focus / exposure / torch / zoom UI state.
             focusDismissTask?.cancel()
             focusIndicator = nil
             exposureBias = 0
             torchOn = false
+            zoomCapabilities = session.zoomCapabilities
+            userZoomFactor = 1.0
             // Re-apply crop in buffer-space — it inverts when switching front/back.
             recorder.cropPosition = effectiveCropPosition
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func setUserZoom(_ user: CGFloat, animated: Bool = false) {
+        let clamped = max(zoomCapabilities.minUser,
+                          min(zoomCapabilities.maxUser, user))
+        userZoomFactor = clamped
+        session.setUserZoom(clamped, animated: animated)
+    }
+
+    func beginPinchZoom() {
+        pinchAnchorZoom = userZoomFactor
+    }
+
+    func updatePinchZoom(scale: CGFloat) {
+        setUserZoom(pinchAnchorZoom * scale, animated: false)
     }
 
     func tapToFocus(layerPoint: CGPoint, devicePoint: CGPoint) {
