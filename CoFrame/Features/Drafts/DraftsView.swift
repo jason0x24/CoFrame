@@ -160,7 +160,7 @@ private struct DraftCard: View {
 
 private struct OrientationBadge: View {
     let symbol: String
-    let text: String
+    let text: LocalizedStringKey
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: symbol)

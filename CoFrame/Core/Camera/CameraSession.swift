@@ -23,9 +23,9 @@ nonisolated enum CameraError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .deviceUnavailable: "无法找到可用的相机"
-        case .audioUnavailable:  "无法找到可用的麦克风"
-        case .cannotAddInput:    "无法将相机或麦克风加入采集会话"
+        case .deviceUnavailable: String(localized: "无法找到可用的相机")
+        case .audioUnavailable:  String(localized: "无法找到可用的麦克风")
+        case .cannotAddInput:    String(localized: "无法将相机或麦克风加入采集会话")
         }
     }
 }

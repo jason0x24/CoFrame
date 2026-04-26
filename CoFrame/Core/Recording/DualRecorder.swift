@@ -290,7 +290,7 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
                 let err = lWriter?.error ?? pWriter?.error ?? NSError(
                     domain: "CoFrame.DualRecorder",
                     code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "录制失败"]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "录制失败")]
                 )
                 self.delegate?.dualRecorder(self, didFailWith: err)
             }

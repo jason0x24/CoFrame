@@ -12,11 +12,11 @@ nonisolated enum GuideLineKind: String, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .off: "关"
-        case .ruleOfThirds: "九宫"
-        case .crosshair: "十字"
-        case .level: "水平"
-        case .all: "全部"
+        case .off:          String(localized: "关")
+        case .ruleOfThirds: String(localized: "九宫")
+        case .crosshair:    String(localized: "十字")
+        case .level:        String(localized: "水平")
+        case .all:          String(localized: "全部")
         }
     }
 
@@ -123,7 +123,7 @@ final class CaptureViewModel {
 
         let perm = await CameraPermission.requestAll()
         guard perm.video, perm.audio else {
-            state = .error("CoFrame 需要相机和麦克风权限。请在「设置 → CoFrame」中开启。")
+            state = .error(String(localized: "CoFrame 需要相机和麦克风权限。请在「设置 → CoFrame」中开启。"))
             return
         }
 

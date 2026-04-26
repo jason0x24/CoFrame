@@ -25,9 +25,17 @@ struct DraftDetailView: View {
     }
 
     enum Orientation: String, CaseIterable, Identifiable {
-        case landscape = "横屏"
-        case portrait = "竖屏"
+        case landscape, portrait
         var id: String { rawValue }
+        /// LocalizedStringKey so the SwiftUI Picker re-evaluates with the
+        /// current locale environment (kept separate from `rawValue` which
+        /// is used as the persistence/tag id).
+        var displayName: LocalizedStringKey {
+            switch self {
+            case .landscape: "横屏"
+            case .portrait:  "竖屏"
+            }
+        }
     }
 
     private var availableOrientations: [Orientation] {
@@ -49,7 +57,7 @@ struct DraftDetailView: View {
             if availableOrientations.count > 1 {
                 Picker("", selection: $orientation) {
                     ForEach(availableOrientations) { o in
-                        Text(o.rawValue).tag(o)
+                        Text(o.displayName).tag(o)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -233,16 +241,18 @@ struct DraftDetailView: View {
                 permissionAlert = true
                 return
             }
-            showToast(.init(message: "导出中…", style: .info))
+            showToast(.init(message: String(localized: "导出中…"), style: .info))
             let result = await PhotoExporter.saveVideos(urls)
             if result.errors.isEmpty {
-                let msg = single ? "已导出到相册" : "已导出 \(result.succeeded)/\(urls.count) 到相册"
+                let msg = single
+                    ? String(localized: "已导出到相册")
+                    : String(localized: "已导出 \(result.succeeded)/\(urls.count) 到相册")
                 showToast(.init(message: msg, style: .success))
             } else if result.succeeded > 0 {
-                showToast(.init(message: "部分导出成功（\(result.succeeded)/\(urls.count)）",
+                showToast(.init(message: String(localized: "部分导出成功（\(result.succeeded)/\(urls.count)）"),
                                 style: .warning))
             } else {
-                let msg = result.errors.first?.localizedDescription ?? "导出失败"
+                let msg = result.errors.first?.localizedDescription ?? String(localized: "导出失败")
                 showToast(.init(message: msg, style: .error))
             }
         }

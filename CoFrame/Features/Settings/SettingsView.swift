@@ -2,11 +2,23 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    @AppStorage(AppPreferences.Key.language)
+    private var languageRaw: String = LanguageOption.system.rawValue
+
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("语言") {
+                    Picker("语言", selection: $languageRaw) {
+                        ForEach(LanguageOption.allCases) { option in
+                            Text(option.displayName).tag(option.rawValue)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Section("关于") {
                     LabeledContent("版本", value: versionString)
                     NavigationLink {
@@ -40,8 +52,8 @@ struct SettingsView: View {
         components.scheme = "mailto"
         components.path = "daffimalfa@gmail.com"
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "CoFrame 反馈"),
-            URLQueryItem(name: "body", value: "App 版本：\(versionString)\n\n")
+            URLQueryItem(name: "subject", value: String(localized: "CoFrame 反馈")),
+            URLQueryItem(name: "body", value: String(localized: "App 版本：\(versionString)\n\n"))
         ]
         return components.url ?? URL(string: "mailto:daffimalfa@gmail.com")!
     }
@@ -76,7 +88,7 @@ private struct PrivacyPolicyView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func privacyRow(icon: String, title: String, desc: String) -> some View {
+    private func privacyRow(icon: String, title: LocalizedStringKey, desc: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 18))

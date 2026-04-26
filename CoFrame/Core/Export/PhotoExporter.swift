@@ -10,8 +10,10 @@ nonisolated enum PhotoExporter {
 
         var errorDescription: String? {
             switch self {
-            case .unauthorized: "无法导出：未授予相册添加权限。请在「设置 → CoFrame → 照片」中开启。"
-            case .writeFailed(let msg): "导出失败：\(msg)"
+            case .unauthorized:
+                String(localized: "无法导出：未授予相册添加权限。请在「设置 → CoFrame → 照片」中开启。")
+            case .writeFailed(let msg):
+                String(localized: "导出失败：\(msg)")
             }
         }
     }
@@ -49,7 +51,7 @@ nonisolated enum PhotoExporter {
                 if success {
                     cont.resume()
                 } else {
-                    let message = error?.localizedDescription ?? "未知错误"
+                    let message = error?.localizedDescription ?? String(localized: "未知错误")
                     cont.resume(throwing: ExporterError.writeFailed(message))
                 }
             })
