@@ -409,27 +409,43 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
 
     private func applyFrameRate(on device: AVCaptureDevice, fps: Int32) {
         let target = CMTime(value: 1, timescale: fps)
+
+        // Helper: does this format have a frame-rate range that covers `target`?
+        func supports(_ format: AVCaptureDevice.Format) -> Bool {
+            format.videoSupportedFrameRateRanges.contains { range in
+                target >= range.minFrameDuration && target <= range.maxFrameDuration
+            }
+        }
+
+        // Helper: does this format also match our target landscape dimensions?
+        func matchesQuality(_ format: AVCaptureDevice.Format) -> Bool {
+            let want = quality.landscapeSize
+            let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            return dims.width == Int32(want.width) && dims.height == Int32(want.height) && supports(format)
+        }
+
         do {
             try device.lockForConfiguration()
-            // For single-lens devices, narrow to a matching format. For virtual
-            // (multi-lens) devices, leave activeFormat alone — pinning a single
-            // format would suppress the system's ability to switch between
-            // ultra-wide / wide / telephoto lenses on zoom.
-            if device.virtualDeviceSwitchOverVideoZoomFactors.isEmpty {
-                let want = quality.landscapeSize
-                let candidates = device.formats.filter { fmt in
-                    let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
-                    let okSize = dims.width == Int32(want.width) && dims.height == Int32(want.height)
-                    let okRate = fmt.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= Float64(fps) }
-                    return okSize && okRate
-                }
-                if let best = candidates.first {
+            defer { device.unlockForConfiguration() }
+
+            // Only switch activeFormat if the current one can't reach the target fps.
+            // For virtual (multi-lens) devices, leaving activeFormat alone preserves
+            // lens switching; we touch it only when we have to (e.g., asked for 4K60
+            // on a default 4K30 format that would otherwise crash on assignment).
+            if !supports(device.activeFormat) {
+                if let best = device.formats.first(where: matchesQuality) {
                     device.activeFormat = best
                 }
             }
+
+            // Final guard: AVFoundation throws an NSInvalidArgumentException
+            // (uncatchable by `try?`) if the active format doesn't include the
+            // requested frame duration. Skip silently — the user gets the
+            // format's default fps rather than a crash.
+            guard supports(device.activeFormat) else { return }
+
             device.activeVideoMinFrameDuration = target
             device.activeVideoMaxFrameDuration = target
-            device.unlockForConfiguration()
         } catch {
             // Frame rate locking is best-effort; tolerate failure.
         }
