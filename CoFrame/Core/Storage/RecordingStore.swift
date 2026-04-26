@@ -108,26 +108,42 @@ nonisolated final class RecordingStore: @unchecked Sendable {
     // MARK: - Thumbnail generation
 
     /// Renders a single first-frame thumbnail (~320pt wide) as JPEG to
-    /// `<sessionDir>/thumbnail.jpg`. Best-effort: silently no-ops on failure.
+    /// `<sessionDir>/thumbnail.jpg`. Best-effort: silently no-ops on failure
+    /// or after a 3-second timeout (a corrupted file or slow storage shouldn't
+    /// keep the post-recording UI waiting indefinitely).
     func generateThumbnail(for session: RecordingSession) async {
         let videoURL: URL? = landscapeURL(for: session) ?? portraitURL(for: session)
         guard let videoURL else { return }
 
+        let outputURL = thumbnailURL(for: session)
+
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await Self.renderThumbnail(from: videoURL, to: outputURL)
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(3))
+            }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
+    private static func renderThumbnail(from videoURL: URL, to outputURL: URL) async {
         let asset = AVURLAsset(url: videoURL)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 640, height: 640)
-
         do {
             let time = CMTime(seconds: 0.2, preferredTimescale: 600)
             let cgImage = try await generator.image(at: time).image
+            try Task.checkCancellation()
             let uiImage = UIImage(cgImage: cgImage)
             if let data = uiImage.jpegData(compressionQuality: 0.7) {
-                let url = thumbnailURL(for: session)
-                try? data.write(to: url, options: .atomic)
+                try? data.write(to: outputURL, options: .atomic)
             }
         } catch {
-            // best effort
+            // best effort — timeout cancellation lands here too
         }
     }
 }

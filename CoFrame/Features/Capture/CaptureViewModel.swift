@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import SwiftUI
 import UIKit
 
 nonisolated enum GuideLineKind: String, CaseIterable, Sendable {
@@ -114,6 +115,25 @@ final class CaptureViewModel {
         self.coordinator = coord
         recorder.delegate = self
         session.sink = coord
+    }
+
+    /// Called from `CaptureView` when the app backgrounds / becomes inactive.
+    /// We can't keep recording in the background (system suspends AVCaptureSession),
+    /// so wrap up gracefully and save what we have rather than risk a torn file.
+    func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            if case .recording = state {
+                stopRecording()
+            }
+            focusDismissTask?.cancel()
+            focusIndicator = nil
+            UIApplication.shared.isIdleTimerDisabled = false
+        case .inactive, .active:
+            break
+        @unknown default:
+            break
+        }
     }
 
     func bootstrap() async {

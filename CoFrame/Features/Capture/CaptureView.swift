@@ -5,6 +5,7 @@ struct CaptureView: View {
     @State private var vm = CaptureViewModel()
     @State private var showDrafts = false
     @State private var showSettings = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -23,6 +24,9 @@ struct CaptureView: View {
         }
         .animation(.easeInOut(duration: 0.35), value: stage)
         .task { await vm.bootstrap() }
+        .onChange(of: scenePhase) { _, newPhase in
+            vm.handleScenePhaseChange(newPhase)
+        }
         .sheet(isPresented: $showDrafts) {
             DraftsView()
         }
