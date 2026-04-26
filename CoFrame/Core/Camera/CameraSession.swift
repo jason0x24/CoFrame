@@ -525,12 +525,12 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
                     connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = false
                 }
-                // Auto stabilization smooths handheld jitter and applies
-                // temporal denoising as a side-effect. Only valid on the
-                // video output's connection.
-                if connection.isVideoStabilizationSupported {
-                    connection.preferredVideoStabilizationMode = .auto
-                }
+                // Stabilization is intentionally OFF on the AVCaptureVideoDataOutput
+                // connection: enabling it (even .auto) buffers 1–3 frames for
+                // analysis, which the PiP — fed by the same sample-buffer stream —
+                // shows as visible lag behind the main preview. Knowledge bloggers
+                // typically shoot on tripods, so the trade-off favors snappy framing
+                // over smoother recording.
             }
         }
     }
