@@ -40,19 +40,12 @@ struct SettingsView: View {
         }
     }
 
-    private var versionString: String {
-        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
-        return "\(v) (\(b))"
-    }
-
     private var feedbackURL: URL {
         var components = URLComponents()
         components.scheme = "mailto"
         components.path = "shouchen.shan@gmail.com"
         components.queryItems = [
-            URLQueryItem(name: "subject", value: String(localized: "CoFrame 反馈")),
-            URLQueryItem(name: "body", value: String(localized: "App 版本：\(versionString)\n\n"))
+            URLQueryItem(name: "subject", value: String(localized: "CoFrame 反馈"))
         ]
         return components.url ?? URL(string: "mailto:shouchen.shan@gmail.com")!
     }
