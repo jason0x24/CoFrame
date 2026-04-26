@@ -341,16 +341,21 @@ private struct ZoomLevelButton: View {
 
     var body: some View {
         Button(action: onTap) {
-            Text(label)
-                .font(.system(size: isCurrent ? 12 : 10,
-                              weight: isCurrent ? .bold : .medium,
-                              design: .rounded))
-                .foregroundStyle(isCurrent ? Color.yellow : Color.white.opacity(0.9))
-                .frame(width: 36, height: 30)
-                .background(
-                    Circle()
-                        .fill(Color.black.opacity(isCurrent ? 0.45 : 0))
-                )
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(isCurrent ? 0.5 : 0))
+                    .frame(width: 30, height: 30)
+                Text(label)
+                    .font(.system(size: isCurrent ? 12 : 10,
+                                  weight: isCurrent ? .bold : .medium,
+                                  design: .rounded))
+                    .foregroundStyle(isCurrent ? Color.yellow : Color.white.opacity(0.9))
+            }
+            // Hit area is the whole 44×40 frame (Apple's 44pt touch-target rule).
+            // Without an explicit contentShape, only the text glyphs catch taps and
+            // misses leak through to the underlying camera tap-to-focus.
+            .frame(width: 44, height: 40)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.16), value: isCurrent)
