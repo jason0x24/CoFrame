@@ -45,11 +45,54 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
 
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var rotationObservation: NSKeyValueObservation?
+    private var notificationTokens: [NSObjectProtocol] = []
 
     private(set) var position: CameraPosition = .back
     private(set) var quality: VideoQuality = .hd1080p30
 
     weak var sink: CameraSampleSink?
+
+    // Lifecycle callbacks fired from `AVCaptureSession`'s notifications.
+    // All callbacks fire on the main queue (NotificationCenter setup uses .main).
+    var onInterruption: ((AVCaptureSession.InterruptionReason?) -> Void)?
+    var onInterruptionEnd: (() -> Void)?
+    var onRuntimeError: ((AVError?) -> Void)?
+
+    override init() {
+        super.init()
+        registerSessionObservers()
+    }
+
+    deinit {
+        for token in notificationTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+
+    private func registerSessionObservers() {
+        let center = NotificationCenter.default
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureSession.wasInterruptedNotification,
+                               object: session, queue: .main) { [weak self] notif in
+                let raw = notif.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int
+                let reason = raw.flatMap(AVCaptureSession.InterruptionReason.init(rawValue:))
+                self?.onInterruption?(reason)
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureSession.interruptionEndedNotification,
+                               object: session, queue: .main) { [weak self] _ in
+                self?.onInterruptionEnd?()
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureSession.runtimeErrorNotification,
+                               object: session, queue: .main) { [weak self] notif in
+                let error = notif.userInfo?[AVCaptureSessionErrorKey] as? AVError
+                self?.onRuntimeError?(error)
+            }
+        )
+    }
 
     func configure(quality: VideoQuality, position: CameraPosition) async throws {
         self.quality = quality

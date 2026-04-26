@@ -30,6 +30,116 @@
         }
       }
     },
+    "温度过高，已自动停止录制" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped recording — device too hot"
+          }
+        }
+      }
+    },
+    "通话期间已自动停止录制" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped recording — phone call active"
+          }
+        }
+      }
+    },
+    "其他应用正在使用相机，已停止录制" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped recording — camera in use by another app"
+          }
+        }
+      }
+    },
+    "应用进入后台，已停止录制" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped recording — app backgrounded"
+          }
+        }
+      }
+    },
+    "系统资源紧张，已自动停止录制" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped recording — system under pressure"
+          }
+        }
+      }
+    },
+    "分屏模式下相机不可用" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera unavailable in Split View"
+          }
+        }
+      }
+    },
+    "录制被中断" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording interrupted"
+          }
+        }
+      }
+    },
+    "相机错误：%@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera error: %@"
+          }
+        }
+      }
+    },
+    "设备温度偏高，建议降低画质" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device warm — consider lower quality"
+          }
+        }
+      }
+    },
+    "设备温度过高" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device too hot"
+          }
+        }
+      }
+    },
     "App 版本：%@\n\n" : {
       "extractionState" : "manual",
       "localizations" : {

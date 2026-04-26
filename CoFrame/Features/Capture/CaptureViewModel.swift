@@ -105,16 +105,114 @@ final class CaptureViewModel {
     let recorder = DualRecorder()
     let portraitSource = PortraitFrameSource()
     let level = LevelMonitor()
+    let thermal = ThermalMonitor()
+
+    /// One-shot transient banner (interruption / runtime error / thermal-stop).
+    /// Auto-dismisses after a few seconds so it doesn't shadow the persistent
+    /// thermal warning underneath.
+    var transientBanner: TransientBanner?
+
+    struct TransientBanner: Equatable {
+        enum Severity: Sendable, Equatable { case warning, critical }
+        let message: String
+        let severity: Severity
+    }
 
     private let coordinator: SampleCoordinator
     private var timer: Timer?
     private var bootstrapped = false
+    private var bannerDismissTask: Task<Void, Never>?
 
     init() {
         let coord = SampleCoordinator(recorder: recorder, portraitSource: portraitSource)
         self.coordinator = coord
         recorder.delegate = self
         session.sink = coord
+
+        session.onInterruption = { [weak self] reason in
+            Task { @MainActor in self?.handleSessionInterruption(reason: reason) }
+        }
+        session.onInterruptionEnd = { [weak self] in
+            Task { @MainActor in self?.transientBanner = nil }
+        }
+        session.onRuntimeError = { [weak self] error in
+            Task { @MainActor in self?.handleSessionRuntimeError(error) }
+        }
+
+        // Observe thermal changes by polling on each access — `thermal` is
+        // @Observable, so any view that reads `vm.thermal.status` re-renders
+        // on change. We additionally hook into `withObservationTracking` to
+        // react in the model layer (auto-stop on critical).
+        observeThermalStatus()
+    }
+
+    private func observeThermalStatus() {
+        withObservationTracking {
+            _ = thermal.status
+        } onChange: { [weak self] in
+            // ThermalMonitor.update() runs on MainActor, so onChange is called
+            // from a main-actor-isolated context.
+            MainActor.assumeIsolated {
+                self?.handleThermalChange()
+                self?.observeThermalStatus()  // re-arm
+            }
+        }
+    }
+
+    private func handleThermalChange() {
+        guard thermal.status == .critical, case .recording = state else { return }
+        // Critical thermal while recording → preserve what we have and
+        // surface a transient banner explaining the auto-stop.
+        stopRecording()
+        showTransientBanner(
+            message: String(localized: "温度过高，已自动停止录制"),
+            severity: .critical,
+            duration: 5
+        )
+    }
+
+    private func handleSessionInterruption(reason: AVCaptureSession.InterruptionReason?) {
+        let message = interruptionMessage(for: reason)
+        if case .recording = state {
+            stopRecording()
+        }
+        showTransientBanner(message: message, severity: .warning, duration: 5)
+    }
+
+    private func handleSessionRuntimeError(_ error: AVError?) {
+        let detail = error?.localizedDescription ?? String(localized: "未知错误")
+        showTransientBanner(
+            message: String(localized: "相机错误：\(detail)"),
+            severity: .critical,
+            duration: 5
+        )
+    }
+
+    private func interruptionMessage(for reason: AVCaptureSession.InterruptionReason?) -> String {
+        switch reason {
+        case .audioDeviceInUseByAnotherClient:
+            String(localized: "通话期间已自动停止录制")
+        case .videoDeviceInUseByAnotherClient:
+            String(localized: "其他应用正在使用相机，已停止录制")
+        case .videoDeviceNotAvailableInBackground:
+            String(localized: "应用进入后台，已停止录制")
+        case .videoDeviceNotAvailableDueToSystemPressure:
+            String(localized: "系统资源紧张，已自动停止录制")
+        case .videoDeviceNotAvailableWithMultipleForegroundApps:
+            String(localized: "分屏模式下相机不可用")
+        default:
+            String(localized: "录制被中断")
+        }
+    }
+
+    private func showTransientBanner(message: String, severity: TransientBanner.Severity, duration: TimeInterval) {
+        bannerDismissTask?.cancel()
+        transientBanner = TransientBanner(message: message, severity: severity)
+        bannerDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(duration))
+            guard let self, !Task.isCancelled else { return }
+            self.transientBanner = nil
+        }
     }
 
     /// Called from `CaptureView` when the app backgrounds / becomes inactive.

@@ -60,7 +60,77 @@ struct CaptureView: View {
             if !vm.pipHidden {
                 DraggablePiP(vm: vm)
             }
+
+            SystemBannerOverlay(vm: vm)
         }
+    }
+}
+
+// MARK: - System banner (thermal + interruption)
+
+/// Top-center status banner. Transient interruption messages take precedence;
+/// otherwise the thermal warning shows persistently while the device is hot.
+private struct SystemBannerOverlay: View {
+    @Bindable var vm: CaptureViewModel
+
+    var body: some View {
+        VStack {
+            if let banner = displayedBanner {
+                HStack(spacing: 6) {
+                    Image(systemName: banner.icon)
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(banner.message)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(banner.background, in: Capsule())
+                .padding(.top, 12)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .animation(.easeInOut(duration: 0.2), value: bannerKey)
+        .allowsHitTesting(false)
+    }
+
+    private struct Banner {
+        let icon: String
+        let message: String
+        let background: Color
+    }
+
+    private var displayedBanner: Banner? {
+        if let t = vm.transientBanner {
+            return Banner(
+                icon: t.severity == .critical ? "xmark.octagon.fill" : "exclamationmark.triangle.fill",
+                message: t.message,
+                background: t.severity == .critical ? Color.red.opacity(0.85) : Color.orange.opacity(0.9)
+            )
+        }
+        switch vm.thermal.status {
+        case .ok:
+            return nil
+        case .warning:
+            return Banner(
+                icon: "thermometer.medium",
+                message: String(localized: "设备温度偏高，建议降低画质"),
+                background: Color.orange.opacity(0.9)
+            )
+        case .critical:
+            return Banner(
+                icon: "thermometer.high",
+                message: String(localized: "设备温度过高"),
+                background: Color.red.opacity(0.85)
+            )
+        }
+    }
+
+    private var bannerKey: String {
+        if let t = vm.transientBanner { return "t:\(t.message)" }
+        return "thermal:\(vm.thermal.status)"
     }
 }
 
