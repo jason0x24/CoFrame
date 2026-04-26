@@ -167,8 +167,6 @@ struct DraftDetailView: View {
                     Label("导出到相册", systemImage: "square.and.arrow.down")
                 }
 
-                shareMenu
-
                 Divider()
 
                 Button(role: .destructive) {
@@ -178,27 +176,6 @@ struct DraftDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var shareMenu: some View {
-        let l = RecordingStore.shared.landscapeURL(for: session)
-        let p = RecordingStore.shared.portraitURL(for: session)
-        if let l, let p {
-            ShareLink(items: [l, p]) {
-                Label("分享两个", systemImage: "square.and.arrow.up")
-            }
-            ShareLink(item: l) {
-                Label("分享横屏", systemImage: "square.and.arrow.up")
-            }
-            ShareLink(item: p) {
-                Label("分享竖屏", systemImage: "square.and.arrow.up")
-            }
-        } else if let one = l ?? p {
-            ShareLink(item: one) {
-                Label("分享", systemImage: "square.and.arrow.up")
             }
         }
     }
