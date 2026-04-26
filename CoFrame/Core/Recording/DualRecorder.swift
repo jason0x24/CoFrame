@@ -174,7 +174,8 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
                 AVVideoAverageBitRateKey: quality.landscapeBitrate,
                 AVVideoExpectedSourceFrameRateKey: Int(quality.frameRate),
                 AVVideoMaxKeyFrameIntervalKey: Int(quality.frameRate * 2)
-            ]
+            ],
+            AVVideoColorPropertiesKey: Self.rec709ColorProperties
         ]
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         videoInput.expectsMediaDataInRealTime = true
@@ -202,7 +203,8 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
                 AVVideoAverageBitRateKey: quality.portraitBitrate,
                 AVVideoExpectedSourceFrameRateKey: Int(quality.frameRate),
                 AVVideoMaxKeyFrameIntervalKey: Int(quality.frameRate * 2)
-            ]
+            ],
+            AVVideoColorPropertiesKey: Self.rec709ColorProperties
         ]
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         videoInput.expectsMediaDataInRealTime = true
@@ -231,6 +233,16 @@ nonisolated final class DualRecorder: CameraSampleSink, @unchecked Sendable {
         AVNumberOfChannelsKey: 1,
         AVSampleRateKey: 44_100,
         AVEncoderBitRateKey: 96_000
+    ]
+
+    /// Explicit Rec. 709 (HDTV / SDR video) color metadata. Without this,
+    /// AVAssetWriter defaults to ambiguous color tags and players may render
+    /// the file with the wrong gamma curve — making the recording look noticeably
+    /// darker than the iOS Camera app's output of the same scene.
+    private static let rec709ColorProperties: [String: String] = [
+        AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+        AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+        AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
     ]
 
     private func finishWriters() {

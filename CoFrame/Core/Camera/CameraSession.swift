@@ -154,6 +154,9 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
                 self.quality = new
                 if let device = self.videoInput?.device {
                     self.applyFrameRate(on: device, fps: new.frameRate)
+                    // Re-apply enhancements: switching preset / activeFormat
+                    // can reset Video HDR back to off.
+                    self.applyQualityEnhancements(on: device)
                 }
                 cont.resume()
             }
@@ -457,9 +460,16 @@ nonisolated final class CameraSession: NSObject, @unchecked Sendable {
             // lens switching; we touch it only when we have to (e.g., asked for 4K60
             // on a default 4K30 format that would otherwise crash on assignment).
             if !supports(device.activeFormat) {
-                if let best = device.formats.first(where: matchesQuality) {
-                    device.activeFormat = best
+                let candidates = device.formats.filter(matchesQuality)
+                // Prefer HDR-supporting formats (wider dynamic range, less crushed
+                // shadows = brighter perceptual look). Tiebreaker: higher max ISO.
+                let best = candidates.max { a, b in
+                    if a.isVideoHDRSupported != b.isVideoHDRSupported {
+                        return b.isVideoHDRSupported
+                    }
+                    return a.maxISO < b.maxISO
                 }
+                if let best { device.activeFormat = best }
             }
 
             // Final guard: AVFoundation throws an NSInvalidArgumentException
